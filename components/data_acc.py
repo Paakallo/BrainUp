@@ -1,10 +1,29 @@
 import mne
 import pandas as pd
 import matplotlib.pyplot as plt
+import os
+
+# Define constants
+data_folder = os.path.join(os.getcwd(), "data")
+
+# Ensure the path points to a valid CSV file
+if os.path.isdir(data_folder):
+    files = [f for f in os.listdir(data_folder) if f.endswith('.csv')]
+    if files:
+        csv_file = os.path.join(data_folder, files[0])
+    else:
+        raise FileNotFoundError("No CSV file found in the dataset directory.")
+else:
+    raise NotADirectoryError(f"The path '{data_folder}' is not a directory.")
 
 
-raw_d = pd.read_csv('data/s00.csv', names=['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz'])
-channel_names = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz']
+channel_names = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz'] # 19 channels
+
+try:
+    raw_d = pd.read_csv(csv_file, names=channel_names)
+except ValueError:
+    print(f"Entered path: \"{data_folder}\" is not a valid CSV file.")
+    print("Error reading CSV file. Please check the file format and content.")
 
 # Preprocessing
 # TODO:
