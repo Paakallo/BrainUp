@@ -14,7 +14,7 @@ app.layout = html.Div([
         options=[
             {"label": "PSD for Specific Band", "value": "specific_band"}
         ],
-        value="raw",
+        value="specific_band",
         inline=True,
     ),
     html.Br(),  # Add a break line here
@@ -23,7 +23,7 @@ app.layout = html.Div([
         id="channel-dropdown",
         options=[{"label": "All Channels", "value": "all"}] +  # Add "All Channels" option
                 [{"label": ch, "value": ch} for ch in mne_raw.info["ch_names"]],
-        value="all",  # Default to "All Channels"
+        value="Fp1",  # Default to "Fp1"
     ),
     html.Br(),  # Add another break line here
     html.Label("Select Frequency Band (if applicable):"),

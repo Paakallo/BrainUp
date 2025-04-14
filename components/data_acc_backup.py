@@ -116,7 +116,7 @@ def plot_channel_bands(raw, spectrum, channel_name, all_bands, band_names):
 
 def plot_power_band(power_bands, band_name, raw, channel_name="all"):
     """
-    Plot the PSD for a specific band across all channels.
+    Plot the PSD for a specific band across selected channels.
     """
     
     for i in range(len(bands_names)):
