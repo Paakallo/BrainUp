@@ -56,40 +56,96 @@ power_bands = extract_all_power_bands(psd)
 ### Specific Vizaulization Functions
 ###
 
-# Function to plot the raw signal for a single channel
 def plot_raw_channel(raw, channel_name):
+    """
+    Plot the raw EEG signal for a specific channel.
+    """
+    
+    # Ensure the channel exists
     if channel_name not in raw.info['ch_names']:
-        raise ValueError(f"Channel '{channel_name}' not found in the data.")
+        print(f"Channel '{channel_name}' not found.")
+        return
+
+    # Find the channel index
     channel_idx = raw.info['ch_names'].index(channel_name)
-    data, times = raw[channel_idx]
-    return times, data.T
 
-# Function to plot PSD for a channel across all bands
+    # Extract the data and times
+    data, times = raw[channel_idx]
+
+    # Plot the raw EEG data
+    plt.figure(figsize=(10, 5))
+    plt.plot(times, data.T, label=channel_name, color='blue')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Amplitude (uV)')
+    plt.title(f'Raw EEG Signal for Channel: {channel_name}')
+    plt.legend(loc='upper right')
+    plt.grid(True)
+    plt.show()
+
 def plot_channel_bands(raw, spectrum, channel_name, all_bands, band_names):
+    """
+    Plot the power spectrum for a specific channel across different frequency bands.
+    """
+    
+    # Ensure the channel exists
     if channel_name not in raw.info['ch_names']:
         raise ValueError(f"Channel '{channel_name}' not found in the data.")
+    
+    # Get the channel index
     channel_index = raw.info['ch_names'].index(channel_name)
-    bands_plot_data = []
+    
+    # Initialize the plot
+    plt.figure(figsize=(10, 6))
+    
+    # Loop through all bands
     for band, band_name in zip(all_bands, band_names):
+        # Extract power and frequency for the current band
         power, freqs = get_power_band(spectrum, band)
+        # Get power for the selected channel
         channel_power = power[channel_index]
-        bands_plot_data.append((band_name, freqs, channel_power))
-    return bands_plot_data
+        # Plot the power spectrum for this band
+        plt.plot(freqs, channel_power, label=f'{band_name} ({band[0]}-{band[1]} Hz)')
+    
+    # Customize the plot
+    plt.title(f'Power Spectrum by Frequency Band for Channel: {channel_name}')
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Power Spectral Density (uV^2/Hz)')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
 
-# Function to plot the PSD for all channels in a specific band
 def plot_power_band(power_bands, band_name, raw, channel_name="all"):
-    for i, name in enumerate(bands_names):
-        if band_name.lower() == name.lower():
+    """
+    Plot the PSD for a specific band across all channels.
+    """
+    
+    for i in range(len(bands_names)):
+        if band_name.lower() == bands_names[i].lower():
             band_index = i
             break
+    
     selected_power_band = power_bands[band_index]
     pow1, freq1 = selected_power_band
-    band_plot_data = []
-    if channel_name.lower() == "all":
+
+    if channel_name != "all" and channel_name not in raw.info['ch_names']:
+        raise ValueError(f"Channel '{channel_name}' not found in the data.")
+    elif channel_name.lower() == "all":
         for i, ch_name in enumerate(raw.info['ch_names']):
-            band_plot_data.append((ch_name, freq1, pow1[i]))
+            plt.plot(freq1, pow1[i], label=ch_name)
     else:
         channel_index = raw.info['ch_names'].index(channel_name)
-        band_plot_data.append((channel_name, freq1, pow1[channel_index]))
-    return band_plot_data
+        plt.plot(freq1, pow1[channel_index], label=channel_name)
+
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Power Spectral Density') # uV^2/Hz
+    plt.title(f'PSD - {bands_names[band_index]} ({bands_freq[band_index][0]} - {bands_freq[band_index][1]} Hz)')
+    plt.legend()
+    plt.show()
+
+if __name__ == "__main__":
+    # Example usage
+    plot_raw_channel(mne_raw, 'Fp1')
+    plot_channel_bands(mne_raw, psd, 'Fp1', bands_freq, bands_names)
+    plot_power_band(power_bands, "delta", mne_raw, "all")
+    plot_power_band(power_bands, "delta", mne_raw, "Fp1")
     
