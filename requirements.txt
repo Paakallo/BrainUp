@@ -1,0 +1,18 @@
+# Data manipulation and analysis
+pandas
+numpy
+
+# Signal processing
+mne
+
+# Visualization
+matplotlib
+
+# Web application framework
+dash
+dash-renderer
+dash-html-components
+dash-core-components
+
+# Web server
+gunicorn
