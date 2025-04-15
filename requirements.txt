@@ -16,3 +16,6 @@ dash-core-components
 
 # Web server
 gunicorn
+
+# Datasets
+kagglehub
