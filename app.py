@@ -2,19 +2,14 @@ import dash
 from dash import Input, Output, html
 import plotly.graph_objects as go
 from components.data_acc import mne_raw, power_bands, bands_names, bands_freq, plot_raw_channels, plot_power_band
+from components.helpers import filter_data
 from components.layout import create_viz_data_layout  
 
 app = dash.Dash(__name__)
+app.title = "BrainUp"  
+app._favicon = "logo.png"  
 
 app.layout = create_viz_data_layout(mne_raw, bands_names)
-
-# Callback for enabling/disabling band dropdown
-@app.callback(
-    Output("band-dropdown", "disabled"),
-    Input("vis-type", "value")
-)
-def toggle_band_dropdown(vis_type):
-    return vis_type == "raw"
 
 # Callback for updating channel dropdown options
 @app.callback(
@@ -23,6 +18,14 @@ def toggle_band_dropdown(vis_type):
 )
 def update_channel_dropdown_options(vis_type):
     return [{"label": ch, "value": ch} for ch in mne_raw.info["ch_names"]]
+
+# Callback for updating the layout to allow multiple channel selection
+@app.callback(
+    Output("channel-dropdown", "multi"),
+    Input("vis-type", "value")
+)
+def toggle_channel_multi_select(vis_type):
+    return True  
 
 # Callback to handle "All Channels" and "Clear Selected Channels" buttons
 @app.callback(
@@ -38,18 +41,33 @@ def handle_channel_buttons(select_all_clicks, clear_clicks):
 
     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
     if triggered_id == "select-all-channels":
-        return [ch for ch in mne_raw.info["ch_names"]]  # Select all channels
+        return [ch for ch in mne_raw.info["ch_names"]]  
     elif triggered_id == "clear-channels":
-        return []  # Clear selection
+        return [] 
     return dash.no_update
 
-# Callback for updating the layout to allow multiple channel selection
+# Callback for showing/hiding the filter selection container
 @app.callback(
-    Output("channel-dropdown", "multi"),
+    Output("filter-selection-container", "style"),
     Input("vis-type", "value")
 )
-def toggle_channel_multi_select(vis_type):
-    return True  # Always allow multiple selection
+def toggle_filter_selection_container(vis_type):
+    if vis_type == "specific_band":
+        return {"display": "none"}  
+    return {"display": "block"}  
+
+# Callback for showing/hiding the custom frequency slider
+@app.callback(
+    Output("custom-frequency-container", "style"),
+    [Input("filter-frequency", "value"),
+     Input("vis-type", "value")]
+)
+def toggle_custom_frequency_slider(filter_frequency, vis_type):
+    if vis_type == "specific_band":
+        return {"display": "none"}  
+    elif filter_frequency == "custom":
+        return {"display": "block"}  
+    return {"display": "none"}  
 
 # Callback for updating the layout to show/hide the band dropdown
 @app.callback(
@@ -58,23 +76,35 @@ def toggle_channel_multi_select(vis_type):
 )
 def toggle_band_dropdown_visibility(vis_type):
     if vis_type == "specific_band":
-        return {"display": "block"}  # Show the dropdown
+        return {"display": "block"} 
     else:
-        return {"display": "none"}  # Hide the dropdown
+        return {"display": "none"} 
 
 # Callback for updating the plot
 @app.callback(
     Output("eeg-plot", "figure"),
     [Input("vis-type", "value"),
      Input("channel-dropdown", "value"),
-     Input("band-dropdown", "value")]
+     Input("band-dropdown", "value"),
+     Input("filter-frequency", "value"),
+     Input("custom-frequency-slider", "value")]
 )
-def update_plot(vis_type, selected_channels, selected_band):
+def update_plot(vis_type, selected_channels, selected_band, filter_frequency, custom_range):
     fig = go.Figure()
     
     if not selected_channels:
-        return fig  # Return empty figure if no channels are selected
+        return fig  
 
+    # Apply frequency filtering
+    filtered_raw = mne_raw.copy()  
+    if filter_frequency == "low":
+        filtered_raw = filter_data(filtered_raw, high_freq=1)
+    elif filter_frequency == "high":
+        filtered_raw = filter_data(filtered_raw, low_freq=25)
+    elif filter_frequency == "custom":
+        filtered_raw = filter_data(filtered_raw, low_freq=custom_range[0], high_freq=custom_range[1])
+
+    # PSD visualization for specific band
     if vis_type == "specific_band":
         band_data = plot_power_band(power_bands, selected_band, mne_raw, "all")
         for ch_name, freqs, power in band_data:
@@ -87,19 +117,25 @@ def update_plot(vis_type, selected_channels, selected_band):
         fig.update_layout(
             title=f"PSD for {selected_band} Band ({bands_freq[band_index][0]} - {bands_freq[band_index][1]} Hz) - Selected Channels", 
             xaxis_title="Frequency (Hz)", 
-            yaxis_title="Power Spectral Density")
+            yaxis_title="Power Spectral Density",
+            yaxis=dict(autorange=True)  
+        )
         
+    # Raw signal visualization for selected channels  
     elif vis_type == "raw":
-        times, data = plot_raw_channels(mne_raw, selected_channels)
+        times, data = plot_raw_channels(filtered_raw, selected_channels)
         for i, channel_name in enumerate(selected_channels):
             fig.add_trace(go.Scatter(x=times, y=data[i], mode="lines", name=channel_name))
         fig.update_layout(
             title="Raw Signal - Selected Channels", 
             xaxis_title="Time (s)", 
             yaxis_title="Amplitude (uV)",
+            xaxis=dict(autorange=True),  
+            yaxis=dict(range=[-100, 100]) 
         )
     
     return fig
+
 
 if __name__ == "__main__":
     app.run(debug=True)

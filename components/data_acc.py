@@ -2,8 +2,6 @@ import mne
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
-import base64
-import io
 
 # Define constants
 data_folder = os.path.join(os.getcwd(), "data")

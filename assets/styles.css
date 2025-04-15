@@ -4,27 +4,56 @@ body {
     margin-left: 20px;
     margin-right: 20px;
     padding: 0;
+    font-size: 14px; 
 }
 
 h1 {
     color: #333;
     text-align: center;
+    font-size: 30px; 
+    margin-bottom: 10px; 
 }
 
 label {
-    font-weight: bold;
+    font-weight: normal; 
     margin-bottom: 5px;
     display: block;
+    margin-right: 10px; 
 }
 
 .dash-dropdown {
     margin-bottom: 20px;
+    margin-right: 10px; 
 }
 
 #vis-type label {
-    margin-right: 20px; /* Add spacing between radio buttons */
+    margin-right: 20px; 
+    font-weight: normal; 
+    margin-bottom: 10px; 
 }
 
 button {
-    margin-right: 10px; /* Add spacing between buttons */
+    margin-right: 10px; 
+}
+
+/* Specific styles for the filter selection section */
+#filter-selection-container {
+    border: 1px solid #ccc;
+    padding: 15px;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+    margin-right: 10px; 
+    margin-bottom: 10px; 
+}
+
+#filter-selection-container label {
+    color: #555;
+    font-weight: normal; 
+    margin-right: 10px; 
+    margin-bottom: 10px; 
+}
+
+#filter-selection-container .dash-radioitems {
+    margin-bottom: 10px;
+    margin-right: 10px; 
 }
