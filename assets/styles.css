@@ -1,0 +1,30 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #ffffff;
+    margin-left: 20px;
+    margin-right: 20px;
+    padding: 0;
+}
+
+h1 {
+    color: #333;
+    text-align: center;
+}
+
+label {
+    font-weight: bold;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.dash-dropdown {
+    margin-bottom: 20px;
+}
+
+#vis-type label {
+    margin-right: 20px; /* Add spacing between radio buttons */
+}
+
+button {
+    margin-right: 10px; /* Add spacing between buttons */
+}
