@@ -11,7 +11,7 @@ from components.data_acc import mne_raw, power_bands, bands_names, bands_freq, p
 from components.layout import create_viz_data_layout
 
 app = dash.Dash(__name__)
-
+server = app.server
 app.layout = create_viz_data_layout(mne_raw, bands_names)
 
 # Callback for enabling/disabling band dropdown
