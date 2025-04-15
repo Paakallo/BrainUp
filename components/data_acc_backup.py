@@ -145,7 +145,7 @@ def plot_power_band(power_bands, band_name, raw, channel_name="all"):
 if __name__ == "__main__":
     # Example usage
     plot_raw_channel(mne_raw, 'Fp1')
-    plot_channel_bands(mne_raw, psd, 'Fp1', bands_freq, bands_names)
-    plot_power_band(power_bands, "delta", mne_raw, "all")
-    plot_power_band(power_bands, "delta", mne_raw, "Fp1")
+    # plot_channel_bands(mne_raw, psd, 'Fp1', bands_freq, bands_names)
+    # plot_power_band(power_bands, "delta", mne_raw, "all")
+    # plot_power_band(power_bands, "delta", mne_raw, "Fp1")
     

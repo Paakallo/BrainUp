@@ -2,6 +2,8 @@ import mne
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import base64
+import io
 
 # Define constants
 data_folder = os.path.join(os.getcwd(), "data")
@@ -56,24 +58,28 @@ power_bands = extract_all_power_bands(psd)
 ### Specific Vizaulization Functions
 ###
 
-# Function to plot the raw signal for a single channel
-def plot_raw_channel(raw, channel_name):
-    if channel_name not in raw.info['ch_names']:
-        raise ValueError(f"Channel '{channel_name}' not found in the data.")
-    channel_idx = raw.info['ch_names'].index(channel_name)
-    data, times = raw[channel_idx]
-    return times, data.T
+# Function to plot the raw signal for one or more channels
+def plot_raw_channels(raw, channel_names):
+    channel_indices = [raw.info['ch_names'].index(ch) for ch in channel_names if ch in raw.info['ch_names']]
+    if not channel_indices:
+        raise ValueError(f"None of the selected channels were found in the data.")
+    
+    data, times = raw[channel_indices]
+    return times, data
 
 # Function to plot PSD for a channel across all bands
 def plot_channel_bands(raw, spectrum, channel_name, all_bands, band_names):
     if channel_name not in raw.info['ch_names']:
         raise ValueError(f"Channel '{channel_name}' not found in the data.")
+    
     channel_index = raw.info['ch_names'].index(channel_name)
+    
     bands_plot_data = []
     for band, band_name in zip(all_bands, band_names):
         power, freqs = get_power_band(spectrum, band)
         channel_power = power[channel_index]
         bands_plot_data.append((band_name, freqs, channel_power))
+        
     return bands_plot_data
 
 # Function to plot the PSD for all channels in a specific band
@@ -82,8 +88,10 @@ def plot_power_band(power_bands, band_name, raw, channel_name="all"):
         if band_name.lower() == name.lower():
             band_index = i
             break
+        
     selected_power_band = power_bands[band_index]
     pow1, freq1 = selected_power_band
+    
     band_plot_data = []
     if channel_name.lower() == "all":
         for i, ch_name in enumerate(raw.info['ch_names']):
@@ -91,5 +99,6 @@ def plot_power_band(power_bands, band_name, raw, channel_name="all"):
     else:
         channel_index = raw.info['ch_names'].index(channel_name)
         band_plot_data.append((channel_name, freq1, pow1[channel_index]))
+        
     return band_plot_data
-    
+
