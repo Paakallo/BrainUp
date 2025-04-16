@@ -1,13 +1,21 @@
+import os
+from components.helpers import prepare_dataset
+# temporary workaround for deployment test
+if not os.path.exists("data"):
+        prepare_dataset()
+
 import dash
 from dash import Input, Output, html
 import plotly.graph_objects as go
 from components.data_acc import mne_raw, power_bands, bands_names, bands_freq, plot_raw_channels, plot_power_band
 from components.helpers import filter_data
-from components.layout import create_viz_data_layout  
+from components.layout import create_viz_data_layout
+
 
 app = dash.Dash(__name__)
 app.title = "BrainUp"  
-app._favicon = "logo.png"  
+app._favicon = "logo.png"
+server = app.server
 
 app.layout = create_viz_data_layout(mne_raw, bands_names)
 
