@@ -8,7 +8,7 @@ import os
 
 # Define constants
 data_folder = os.path.join(os.getcwd(), "data")
-channel_names = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz'] # 19 channels
+# channel_names = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz'] # 19 channels
 delta = [0.5,4] # Delta:   0.5 – 4   Hz   → Deep sleep, unconscious states
 theta = [4,8] # Theta:   4   – 8   Hz   → Drowsiness, meditation, creativity
 alpha = [8,13] # Alpha:   8   – 13  Hz   → Relaxed wakefulness, calm focus
@@ -72,7 +72,7 @@ def get_file(contents, file_name:str):
         if file_name.endswith(".csv"):
             raw_data = pd.read_csv(
                     io.StringIO(decoded.decode('utf-8')))
-            channels_info = raw_data.columns # TODO: add support for named channels
+            channels_info = list(raw_data.columns) # TODO: add support for named channels
         elif file_name.endswith(".xls"):
             raw_data = pd.read_excel(io.BytesIO(decoded))
             channels_info = raw_data.columns
@@ -83,10 +83,14 @@ def get_file(contents, file_name:str):
         print("Error reading CSV file. Please check the file format and content.")
     return raw_data, channels_info
 
+def pd2mne(raw_data:pd.DataFrame):
+    info = mne.create_info(list(raw_data.columns), 256, ch_types="eeg")
+    mne_raw = mne.io.RawArray(raw_data.T, info)
+    return mne_raw
+
 def calculate_psd(raw_data):
     # Create MNE Raw object and calculate PSD
-    info = mne.create_info(channel_names, 256, ch_types="eeg")
-    mne_raw = mne.io.RawArray(raw_data.T, info)
+    mne_raw = pd2mne(raw_data)
     psd = mne_raw.compute_psd()
     return psd
 
@@ -132,8 +136,7 @@ def plot_channel_bands(raw, spectrum, channel_name, all_bands, band_names):
     return bands_plot_data
 
 # Function to plot the PSD for all channels in a specific band
-def plot_power_band(spectrum, band_name, raw, channel_name="all"):
-    power_bands = extract_all_power_bands(spectrum)
+def plot_power_band(power_bands, band_name, raw, channel_name="all"):
     for i, name in enumerate(bands_names):
         if band_name.lower() == name.lower():
             band_index = i

@@ -10,7 +10,7 @@ if not os.path.exists("data"):
 import dash
 from dash import Input, Output, html
 import plotly.graph_objects as go
-from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, plot_raw_channels, plot_power_band
+from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band
 from components.helpers import filter_data
 from components.layout import create_viz_data_layout
 
@@ -50,6 +50,7 @@ def upload_file(file, filename):
     raw_data, channels_info = get_file(file, filename)
     print("File uploaded")
     
+    mne_raw = pd2mne(raw_data)
     spectrum = calculate_psd(raw_data)
     power_bands = extract_all_power_bands(spectrum)
 
