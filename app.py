@@ -36,36 +36,75 @@ info = mne.create_info(["None"], 256, ch_types="eeg")
 # Create Raw object
 mne_raw = mne.io.RawArray(data, info)
 mne_raw.info
+
 power_bands = None
 app.layout = create_viz_data_layout(mne_raw, bands_names)
 
-# Callback for uploading file
+# Callback for uploading file and nuking the whole page
 @app.callback(
-        Output("up-file","children"),
+        Output("flag-store", "data"),
+        Output("name-channels", "data"),
+        # Output("channel-dropdown", "options"),
+        Output("vis-type", "value"),
+        # Output("channel-dropdown", "value"),
+        Output("band-dropdown", "value"),
+        Output("filter-frequency", "value"),
+        Output("custom-frequency-slider", "value"),
+        # Output("eeg-plot", "figure"),
         Input("up-file", "contents"),
-        Input("up-file", "filename")
+        Input("up-file", "filename"),
+        prevent_initial_call=True
 )
 def upload_file(file, filename):
     # quit if nothing is uploaded
     if filename is None:
-        return
-    print("hello world!")
-    raw_data = get_file(filename)
+        return dash.no_update
+    
+    print("File uploaded")
+    channels_info = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz'] # 19 channels
+    
+    # Create empty figure
+    fig = go.Figure()
+    
+    # Return reset values for all components
+    return (
+        True, # initializes upload
+        channels_info,
+        # [{"label": "All Channels", "value": "all"}] + [{"label": ch, "value": ch} for ch in channels],
+        "raw",  # Default visualization type
+        # [],  # Empty channel selection
+        None,  # No band selected
+        None,  # No filter selected
+        None,  # No custom frequency
+        # fig  # Empty figure
+    )
+       
 
 # One Callback to rule them all
+# @app.callback(
+#         Output("up-file","children"),
+#         Input("up-file", "contents"),
+#         Input("up-file", "filename")
+# )
 
 # Callback for updating channel dropdown options
 @app.callback(
     Output("channel-dropdown", "options"),
     Input("vis-type", "value"),
+    Input("name-channels", "data"),
+    prevent_initial_call=True
 )
-def update_channel_dropdown_options(vis_type):
-    return [{"label": ch, "value": ch} for ch in mne_raw.info["ch_names"]]
+def update_channel_dropdown_options(vis_type,name_channels):
+    # prevent updating channels without uploaded file
+    if not name_channels:
+        return dash.no_update
+    return [{"label": ch, "value": ch} for ch in name_channels]
 
 # Callback for updating the layout to allow multiple channel selection
 @app.callback(
     Output("channel-dropdown", "multi"),
-    Input("vis-type", "value")
+    Input("vis-type", "value"),
+    prevent_initial_call=True
 )
 def toggle_channel_multi_select(vis_type):
     return True  
@@ -103,7 +142,8 @@ def toggle_filter_selection_container(vis_type):
 @app.callback(
     Output("custom-frequency-container", "style"),
     [Input("filter-frequency", "value"),
-     Input("vis-type", "value")]
+     Input("vis-type", "value")],
+     prevent_initial_call=True
 )
 def toggle_custom_frequency_slider(filter_frequency, vis_type):
     if vis_type == "specific_band":
@@ -115,7 +155,8 @@ def toggle_custom_frequency_slider(filter_frequency, vis_type):
 # Callback for updating the layout to show/hide the band dropdown
 @app.callback(
     Output("band-dropdown-container", "style"),
-    Input("vis-type", "value")
+    Input("vis-type", "value"),
+    prevent_initial_call=True
 )
 def toggle_band_dropdown_visibility(vis_type):
     if vis_type == "specific_band":
@@ -130,7 +171,8 @@ def toggle_band_dropdown_visibility(vis_type):
      Input("channel-dropdown", "value"),
      Input("band-dropdown", "value"),
      Input("filter-frequency", "value"),
-     Input("custom-frequency-slider", "value")]
+     Input("custom-frequency-slider", "value")],
+     prevent_initial_call=True
 )
 def update_plot(vis_type, selected_channels, selected_band, filter_frequency, custom_range):
     fig = go.Figure()
