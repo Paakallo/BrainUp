@@ -21,6 +21,24 @@ def create_viz_data_layout(mne_raw, bands_names):
             value="raw",
             inline=True,
         ),
+
+        # Upload file
+        dcc.Upload(
+            id="up-file",
+            multiple=False,
+            children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
+            style={
+                "width": "100%",
+                "height": "60px",
+                "lineHeight": "60px",
+                "borderWidth": "1px",
+                "borderStyle": "dashed",
+                "borderRadius": "5px",
+                "textAlign": "center",
+                "margin": "10px",
+            },
+        ),
+
         html.Br(),
         
         # Channel Selection

@@ -1,4 +1,7 @@
 import os
+
+import mne
+import numpy as np
 from components.helpers import prepare_dataset
 # temporary workaround for deployment test
 if not os.path.exists("data"):
@@ -7,7 +10,7 @@ if not os.path.exists("data"):
 import dash
 from dash import Input, Output, html
 import plotly.graph_objects as go
-from components.data_acc import mne_raw, power_bands, bands_names, bands_freq, plot_raw_channels, plot_power_band
+from components.data_acc import get_file, bands_names, bands_freq, plot_raw_channels, plot_power_band
 from components.helpers import filter_data
 from components.layout import create_viz_data_layout
 
@@ -17,12 +20,44 @@ app.title = "BrainUp"
 app._favicon = "logo.png"
 server = app.server
 
+# Define global constants
+# Create an empty Raw object with specified channels
+n_channels = 1  # or your desired number
+sfreq = 1000  # sampling frequency in Hz
+ch_names = []  # empty list or your channel names
+ch_types = []  # empty list or your channel types ('eeg', 'meg', etc.)
+
+# Create empty data (0 samples)
+data = np.zeros((n_channels, 0))
+
+# Create minimal info
+info = mne.create_info(["None"], 256, ch_types="eeg")
+
+# Create Raw object
+mne_raw = mne.io.RawArray(data, info)
+mne_raw.info
+power_bands = None
 app.layout = create_viz_data_layout(mne_raw, bands_names)
+
+# Callback for uploading file
+@app.callback(
+        Output("up-file","children"),
+        Input("up-file", "contents"),
+        Input("up-file", "filename")
+)
+def upload_file(file, filename):
+    # quit if nothing is uploaded
+    if filename is None:
+        return
+    print("hello world!")
+    raw_data = get_file(filename)
+
+# One Callback to rule them all
 
 # Callback for updating channel dropdown options
 @app.callback(
     Output("channel-dropdown", "options"),
-    Input("vis-type", "value")
+    Input("vis-type", "value"),
 )
 def update_channel_dropdown_options(vis_type):
     return [{"label": ch, "value": ch} for ch in mne_raw.info["ch_names"]]
