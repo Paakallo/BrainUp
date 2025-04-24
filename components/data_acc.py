@@ -14,30 +14,59 @@ gamma = [30,100] # Gamma:   30  – 100 Hz   → Higher cognitive functions, mem
 bands_freq = [delta, theta, alpha, beta, gamma]
 bands_names = ['Delta', 'Theta', 'Alpha', 'Beta', 'Gamma']
 
-# Load data
-csv_files = []
-used_csv_file_index: int = 0
-if os.path.isdir(data_folder):
-    files = [f for f in os.listdir(data_folder) if f.endswith('.csv')]
-    if files:
-        for i in range(len(files)):
-            csv_files.append(os.path.join(data_folder, files[i]))
-        print(f"Opening file: {csv_files[used_csv_file_index]}")
+# # Load data
+# csv_files = []
+# used_csv_file_index: int = 0
+# if os.path.isdir(data_folder):
+#     files = [f for f in os.listdir(data_folder) if f.endswith('.csv')]
+#     if files:
+#         for i in range(len(files)):
+#             csv_files.append(os.path.join(data_folder, files[i]))
+#         print(f"Opening file: {csv_files[used_csv_file_index]}")
+#     else:
+#         raise FileNotFoundError("No CSV file found in the dataset directory.")
+# else:
+#     raise NotADirectoryError(f"The path '{data_folder}' is not a directory.")
+
+# try:
+#     raw_data = pd.read_csv(csv_files[used_csv_file_index], names=channel_names)
+# except ValueError:
+#     print(f"Entered path: \"{data_folder}\" is not a valid CSV file.")
+#     print("Error reading CSV file. Please check the file format and content.")
+
+# # Create MNE Raw object and calculate PSD
+# info = mne.create_info(channel_names, 256, ch_types="eeg")
+# mne_raw = mne.io.RawArray(raw_data.T, info)
+# psd = mne_raw.compute_psd()
+
+def get_file(file_name:str):
+    file_path = os.path.join(data_folder, file_name)
+
+    if file_name.endswith(".csv"):
+        pass
+    elif file_name.endswith(".excel"):
+        pass
+    else:
+        raise TypeError
+
+    if os.path.exists(file_path): 
+        print(f"Opening file: {file_name}")
     else:
         raise FileNotFoundError("No CSV file found in the dataset directory.")
-else:
-    raise NotADirectoryError(f"The path '{data_folder}' is not a directory.")
+    
+    try:
+        raw_data = pd.read_csv(file_path, names=channel_names)
+    except ValueError:
+        print(f"Entered path: \"{file_path}\" is not a valid CSV file.")
+        print("Error reading CSV file. Please check the file format and content.")
+    return raw_data
 
-try:
-    raw_data = pd.read_csv(csv_files[used_csv_file_index], names=channel_names)
-except ValueError:
-    print(f"Entered path: \"{data_folder}\" is not a valid CSV file.")
-    print("Error reading CSV file. Please check the file format and content.")
-
-# Create MNE Raw object and calculate PSD
-info = mne.create_info(channel_names, 256, ch_types="eeg")
-mne_raw = mne.io.RawArray(raw_data.T, info)
-psd = mne_raw.compute_psd()
+def calculate_psd(raw_data):
+    # Create MNE Raw object and calculate PSD
+    info = mne.create_info(channel_names, 256, ch_types="eeg")
+    mne_raw = mne.io.RawArray(raw_data.T, info)
+    psd = mne_raw.compute_psd()
+    return psd
 
 def get_power_band(spectrum:mne.time_frequency.Spectrum, band:list):
     fmin, fmax = band
@@ -50,7 +79,7 @@ def extract_all_power_bands(spectrum):
         power_bands.append(get_power_band(spectrum, band))
     return power_bands
 
-power_bands = extract_all_power_bands(psd)
+# power_bands = extract_all_power_bands(psd)
 
 ###
 ### Specific Vizaulization Functions
@@ -81,7 +110,8 @@ def plot_channel_bands(raw, spectrum, channel_name, all_bands, band_names):
     return bands_plot_data
 
 # Function to plot the PSD for all channels in a specific band
-def plot_power_band(power_bands, band_name, raw, channel_name="all"):
+def plot_power_band(spectrum, band_name, raw, channel_name="all"):
+    power_bands = extract_all_power_bands(spectrum)
     for i, name in enumerate(bands_names):
         if band_name.lower() == name.lower():
             band_index = i
