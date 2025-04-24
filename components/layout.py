@@ -2,9 +2,7 @@ from dash import dcc, html
 
 def create_viz_data_layout(mne_raw, bands_names):
     return html.Div([
-        # upload file flag
-        dcc.Store(id='flag-store', data=False),  # Initialize with False
-
+        # upload name channels
         dcc.Store(id='name-channels', data=False),  
 
         # Header with Logo

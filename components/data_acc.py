@@ -17,57 +17,29 @@ gamma = [30,100] # Gamma:   30  – 100 Hz   → Higher cognitive functions, mem
 bands_freq = [delta, theta, alpha, beta, gamma]
 bands_names = ['Delta', 'Theta', 'Alpha', 'Beta', 'Gamma']
 
-# # Load data
-# csv_files = []
-# used_csv_file_index: int = 0
-# if os.path.isdir(data_folder):
-#     files = [f for f in os.listdir(data_folder) if f.endswith('.csv')]
-#     if files:
-#         for i in range(len(files)):
-#             csv_files.append(os.path.join(data_folder, files[i]))
-#         print(f"Opening file: {csv_files[used_csv_file_index]}")
-#     else:
-#         raise FileNotFoundError("No CSV file found in the dataset directory.")
-# else:
-#     raise NotADirectoryError(f"The path '{data_folder}' is not a directory.")
 
-# try:
-#     raw_data = pd.read_csv(csv_files[used_csv_file_index], names=channel_names)
-# except ValueError:
-#     print(f"Entered path: \"{data_folder}\" is not a valid CSV file.")
-#     print("Error reading CSV file. Please check the file format and content.")
-
-# # Create MNE Raw object and calculate PSD
-# info = mne.create_info(channel_names, 256, ch_types="eeg")
-# mne_raw = mne.io.RawArray(raw_data.T, info)
-# psd = mne_raw.compute_psd()
-
-# Create an empty Raw object with specified channels
 def construct_mne_object():
+    # Create an empty Raw object with specified channels
     n_channels = 1  # or your desired number
-
     # Create empty data (0 samples)
     data = np.zeros((n_channels, 0))
-
     # Create minimal info
     info = mne.create_info(["None"], 256, ch_types="eeg")
-
     # Create Raw object
     mne_raw = mne.io.RawArray(data, info)
     return mne_raw
 
 def get_file(contents, file_name:str):
+    # Returns pandas DataFrame and column names from decoded contents
+    # contents are decoded from uploaded file
     file_path = os.path.join(data_folder, file_name)
-
     # decode contents
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
-
     if os.path.exists(file_path): 
         print(f"Opening file: {file_name}")
     else:
         raise FileNotFoundError("No CSV file found in the dataset directory.")
-    
     try:
         if file_name.endswith(".csv"):
             raw_data = pd.read_csv(
@@ -84,11 +56,12 @@ def get_file(contents, file_name:str):
     return raw_data, channels_info
 
 def pd2mne(raw_data:pd.DataFrame):
+    # Convert DataFrame to mne object
     info = mne.create_info(list(raw_data.columns), 256, ch_types="eeg")
     mne_raw = mne.io.RawArray(raw_data.T, info)
     return mne_raw
 
-def calculate_psd(raw_data):
+def calculate_psd(raw_data:pd.DataFrame):
     # Create MNE Raw object and calculate PSD
     mne_raw = pd2mne(raw_data)
     psd = mne_raw.compute_psd()
@@ -99,13 +72,12 @@ def get_power_band(spectrum:mne.time_frequency.Spectrum, band:list):
     power, freqs = spectrum.get_data(return_freqs=True, fmin=fmin, fmax=fmax)
     return power, freqs
 
-def extract_all_power_bands(spectrum):
+def extract_all_power_bands(spectrum:mne.time_frequency.Spectrum):
     power_bands = []
     for band in bands_freq:
         power_bands.append(get_power_band(spectrum, band))
     return power_bands
 
-# power_bands = extract_all_power_bands(psd)
 
 ###
 ### Specific Vizaulization Functions

@@ -28,15 +28,11 @@ app.layout = create_viz_data_layout(mne_raw, bands_names)
 
 # Callback for uploading file and nuking the whole page
 @app.callback(
-        # Output("flag-store", "data"),
         Output("name-channels", "data"),
-        # Output("channel-dropdown", "options"),
         Output("vis-type", "value"),
-        # Output("channel-dropdown", "value"),
         Output("band-dropdown", "value"),
         Output("filter-frequency", "value"),
         Output("custom-frequency-slider", "value"),
-        # Output("eeg-plot", "figure"),
         Input("up-file", "contents"),
         Input("up-file", "filename"),
         prevent_initial_call=True
@@ -53,21 +49,13 @@ def upload_file(file, filename):
     mne_raw = pd2mne(raw_data)
     spectrum = calculate_psd(raw_data)
     power_bands = extract_all_power_bands(spectrum)
-
-    # Create empty figure
-    fig = go.Figure()
-    
     # Return reset values for all components
     return (
-        # True, # initializes upload
         channels_info,
-        # [{"label": "All Channels", "value": "all"}] + [{"label": ch, "value": ch} for ch in channels],
         "raw",  # Default visualization type
-        # [],  # Empty channel selection
         None,  # No band selected
         None,  # No filter selected
         None,  # No custom frequency
-        # fig  # Empty figure
     )
        
 # Callback for updating channel dropdown options
