@@ -78,6 +78,20 @@ def extract_all_power_bands(spectrum:mne.time_frequency.Spectrum):
         power_bands.append(get_power_band(spectrum, band))
     return power_bands
 
+def power_band2csv(power_bands:list, channels:list):
+    #TODO: finish this function according to example.xlsx
+    pw_dic = {f"{chan}".key() for chan in channels}
+    df = pd.DataFrame()
+    for i, chan in enumerate(channels):
+        
+        for j, name in enumerate(bands_names):
+            selected_power_band = power_bands[j]
+            pow1, freq1 = selected_power_band
+
+    
+    # df = pd.DataFrame(power_bands)
+    return df
+
 
 ###
 ### Specific Vizaulization Functions

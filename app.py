@@ -8,9 +8,9 @@ if not os.path.exists("data"):
         prepare_dataset()
 
 import dash
-from dash import Input, Output, html
+from dash import Input, Output, html, dcc
 import plotly.graph_objects as go
-from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band
+from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band, power_band2csv
 from components.helpers import filter_data
 from components.layout import create_viz_data_layout
 
@@ -194,6 +194,14 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
     
     return fig
 
+@app.callback(
+    Output("download-dataframe-csv", "data"),
+    Input("pw-button", "n_clicks"),
+    prevent_initial_call=True,
+)
+def download_power_band(n_clicks):
+    df = power_band2csv(power_bands)
+    return dcc.send_data_frame(df.to_csv, "power_bands.csv")
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -42,6 +42,10 @@ def create_viz_data_layout(mne_raw, bands_names):
             },
         ),
 
+        # Download file
+        html.Button("Download Power Band", id="pw-button"),
+        dcc.Download(id="download-dataframe-csv"),
+
         html.Br(),
         
         # Channel Selection
