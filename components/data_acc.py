@@ -1,4 +1,7 @@
+import base64
+import io
 import mne
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
@@ -39,15 +42,26 @@ bands_names = ['Delta', 'Theta', 'Alpha', 'Beta', 'Gamma']
 # mne_raw = mne.io.RawArray(raw_data.T, info)
 # psd = mne_raw.compute_psd()
 
-def get_file(file_name:str):
+# Create an empty Raw object with specified channels
+def construct_mne_object():
+    n_channels = 1  # or your desired number
+
+    # Create empty data (0 samples)
+    data = np.zeros((n_channels, 0))
+
+    # Create minimal info
+    info = mne.create_info(["None"], 256, ch_types="eeg")
+
+    # Create Raw object
+    mne_raw = mne.io.RawArray(data, info)
+    return mne_raw
+
+def get_file(contents, file_name:str):
     file_path = os.path.join(data_folder, file_name)
 
-    if file_name.endswith(".csv"):
-        pass
-    elif file_name.endswith(".excel"):
-        pass
-    else:
-        raise TypeError
+    # decode contents
+    content_type, content_string = contents.split(',')
+    decoded = base64.b64decode(content_string)
 
     if os.path.exists(file_path): 
         print(f"Opening file: {file_name}")
@@ -55,11 +69,19 @@ def get_file(file_name:str):
         raise FileNotFoundError("No CSV file found in the dataset directory.")
     
     try:
-        raw_data = pd.read_csv(file_path, names=channel_names)
+        if file_name.endswith(".csv"):
+            raw_data = pd.read_csv(
+                    io.StringIO(decoded.decode('utf-8')))
+            channels_info = raw_data.columns # TODO: add support for named channels
+        elif file_name.endswith(".xls"):
+            raw_data = pd.read_excel(io.BytesIO(decoded))
+            channels_info = raw_data.columns
+        else:
+            raise TypeError
     except ValueError:
         print(f"Entered path: \"{file_path}\" is not a valid CSV file.")
         print("Error reading CSV file. Please check the file format and content.")
-    return raw_data
+    return raw_data, channels_info
 
 def calculate_psd(raw_data):
     # Create MNE Raw object and calculate PSD

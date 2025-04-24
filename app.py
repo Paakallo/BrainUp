@@ -10,7 +10,7 @@ if not os.path.exists("data"):
 import dash
 from dash import Input, Output, html
 import plotly.graph_objects as go
-from components.data_acc import get_file, bands_names, bands_freq, plot_raw_channels, plot_power_band
+from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, plot_raw_channels, plot_power_band
 from components.helpers import filter_data
 from components.layout import create_viz_data_layout
 
@@ -21,28 +21,14 @@ app._favicon = "logo.png"
 server = app.server
 
 # Define global constants
-# Create an empty Raw object with specified channels
-n_channels = 1  # or your desired number
-sfreq = 1000  # sampling frequency in Hz
-ch_names = []  # empty list or your channel names
-ch_types = []  # empty list or your channel types ('eeg', 'meg', etc.)
+mne_raw = construct_mne_object()
+power_bands = []
 
-# Create empty data (0 samples)
-data = np.zeros((n_channels, 0))
-
-# Create minimal info
-info = mne.create_info(["None"], 256, ch_types="eeg")
-
-# Create Raw object
-mne_raw = mne.io.RawArray(data, info)
-mne_raw.info
-
-power_bands = None
 app.layout = create_viz_data_layout(mne_raw, bands_names)
 
 # Callback for uploading file and nuking the whole page
 @app.callback(
-        Output("flag-store", "data"),
+        # Output("flag-store", "data"),
         Output("name-channels", "data"),
         # Output("channel-dropdown", "options"),
         Output("vis-type", "value"),
@@ -56,19 +42,23 @@ app.layout = create_viz_data_layout(mne_raw, bands_names)
         prevent_initial_call=True
 )
 def upload_file(file, filename):
+    global mne_raw, power_bands
     # quit if nothing is uploaded
     if filename is None:
         return dash.no_update
     
+    raw_data, channels_info = get_file(file, filename)
     print("File uploaded")
-    channels_info = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz'] # 19 channels
     
+    spectrum = calculate_psd(raw_data)
+    power_bands = extract_all_power_bands(spectrum)
+
     # Create empty figure
     fig = go.Figure()
     
     # Return reset values for all components
     return (
-        True, # initializes upload
+        # True, # initializes upload
         channels_info,
         # [{"label": "All Channels", "value": "all"}] + [{"label": ch, "value": ch} for ch in channels],
         "raw",  # Default visualization type
@@ -79,14 +69,6 @@ def upload_file(file, filename):
         # fig  # Empty figure
     )
        
-
-# One Callback to rule them all
-# @app.callback(
-#         Output("up-file","children"),
-#         Input("up-file", "contents"),
-#         Input("up-file", "filename")
-# )
-
 # Callback for updating channel dropdown options
 @app.callback(
     Output("channel-dropdown", "options"),
