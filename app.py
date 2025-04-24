@@ -20,7 +20,7 @@ app.title = "BrainUp"
 app._favicon = "logo.png"
 server = app.server
 
-# Define global constants
+# Define global constants (in my opinion temporary solution)
 mne_raw = construct_mne_object()
 power_bands = []
 
@@ -174,6 +174,8 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
 
     # PSD visualization for specific band
     if vis_type == "specific_band":
+        if selected_band is None:
+            return dash.no_update
         band_data = plot_power_band(power_bands, selected_band, mne_raw, "all")
         for ch_name, freqs, power in band_data:
             if ch_name in selected_channels:
