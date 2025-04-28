@@ -79,17 +79,23 @@ def extract_all_power_bands(spectrum:mne.time_frequency.Spectrum):
     return power_bands
 
 def power_band2csv(power_bands:list, channels:list):
-    #TODO: finish this function according to example.xlsx
-    pw_dic = {f"{chan}".key() for chan in channels}
-    df = pd.DataFrame()
-    for i, chan in enumerate(channels):
-        
-        for j, name in enumerate(bands_names):
-            selected_power_band = power_bands[j]
-            pow1, freq1 = selected_power_band
-
-    
-    # df = pd.DataFrame(power_bands)
+    pw_dic = {}
+    for i, band in enumerate(bands_names):
+        sel_band = power_bands[i]
+        freq = sel_band[1]
+        pw_dic[f"{band}_freq"] = freq
+        all_pow = sel_band[0]
+        # iterate channels
+        for j, chan in enumerate(channels):
+            pow = all_pow[j]
+            pw_dic[f"{chan}({band})_power"] = pow
+    # Find the maximum length
+    max_len = max(len(v) for v in pw_dic.values())
+    # Pad shorter lists with np.nan
+    for key, value in pw_dic.items():
+        if len(value) < max_len:
+            pw_dic[key] = np.pad(value, (0, max_len - len(value)), constant_values=np.nan)
+    df = pd.DataFrame(pw_dic)
     return df
 
 
