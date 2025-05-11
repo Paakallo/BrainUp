@@ -42,18 +42,37 @@ def get_file(contents, file_name:str):
         raise FileNotFoundError("No CSV file found in the dataset directory.")
     try:
         if file_name.endswith(".csv"):
-            raw_data = pd.read_csv(
-                    io.StringIO(decoded.decode('utf-8')))
-            channels_info = list(raw_data.columns) # TODO: add support for named channels
+            raw_data = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+            raw_data, channels_info = check_columns(raw_data)
         elif file_name.endswith(".xls"):
             raw_data = pd.read_excel(io.BytesIO(decoded))
-            channels_info = raw_data.columns
+            raw_data, channels_info = check_columns(raw_data)
         else:
             raise TypeError
     except ValueError:
         print(f"Entered path: \"{file_path}\" is not a valid CSV file.")
         print("Error reading CSV file. Please check the file format and content.")
     return raw_data, channels_info
+
+def check_columns(import_data:pd.DataFrame):
+    df = import_data.select_dtypes(include=['number']) # select onlu numeric values
+    columns = list(df.columns)
+    channels_info = [] # output
+
+    is_string = False # check if there is a string
+    for i,col in enumerate(columns):
+        if any(char.isalpha() for char in str(col)): # check if there is a letter
+            channels_info.append(col)
+            is_string = True
+        else:
+            channels_info.append(str(i)) # electrode number
+
+    if not is_string: # move numeric columns to a row 
+        column_names_row = pd.DataFrame([df.columns.tolist()], columns=df.columns)
+        df = pd.concat([column_names_row, df], ignore_index=True)
+
+    df.columns = channels_info
+    return df, channels_info
 
 def pd2mne(raw_data:pd.DataFrame):
     # Convert DataFrame to mne object
