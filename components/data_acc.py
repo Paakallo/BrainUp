@@ -47,6 +47,12 @@ def get_file(contents, file_name:str):
         elif file_name.endswith(".xls"):
             raw_data = pd.read_excel(io.BytesIO(decoded))
             raw_data, channels_info = check_columns(raw_data)
+        elif file_name.endswith("edf"):
+            raw_data = mne.io.read_raw_edf("data/ex.edf", preload=True) # temporarily hardcoded
+            channels_info = raw_data.ch_names
+        elif file_name.endswith("xdf"):
+            # raw_data = mne.io.read_raw_xdf("data/example.xdf", preload=True) # temporarily hardcoded
+            pass
         else:
             raise TypeError
     except ValueError:
@@ -76,6 +82,8 @@ def check_columns(import_data:pd.DataFrame):
 
 def pd2mne(raw_data:pd.DataFrame):
     # Convert DataFrame to mne object
+    if not isinstance(raw_data, pd.DataFrame):
+        return raw_data
     info = mne.create_info(list(raw_data.columns), 256, ch_types="eeg")
     mne_raw = mne.io.RawArray(raw_data.T, info)
     return mne_raw
@@ -129,6 +137,7 @@ def plot_raw_channels(raw, channel_names):
         raise ValueError(f"None of the selected channels were found in the data.")
     
     data, times = raw[channel_indices]
+    print(data)
     return times, data
 
 # Function to plot PSD for a channel across all bands
