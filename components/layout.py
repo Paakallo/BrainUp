@@ -2,6 +2,9 @@ from dash import dcc, html
 
 def create_viz_data_layout(mne_raw, bands_names):
     return html.Div([
+        # upload name channels
+        dcc.Store(id='name-channels', data=False),  
+
         # Header with Logo
         html.Div(
             [
@@ -21,6 +24,28 @@ def create_viz_data_layout(mne_raw, bands_names):
             value="raw",
             inline=True,
         ),
+
+        # Upload file
+        dcc.Upload(
+            id="up-file",
+            multiple=False,
+            children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
+            style={
+                "width": "100%",
+                "height": "60px",
+                "lineHeight": "60px",
+                "borderWidth": "1px",
+                "borderStyle": "dashed",
+                "borderRadius": "5px",
+                "textAlign": "center",
+                "margin": "10px",
+            },
+        ),
+
+        # Download file
+        html.Button("Download Power Band", id="pw-button"),
+        dcc.Download(id="download-dataframe-csv"),
+
         html.Br(),
         
         # Channel Selection

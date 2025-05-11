@@ -1,11 +1,14 @@
+import base64
+import io
 import mne
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
 
 # Define constants
 data_folder = os.path.join(os.getcwd(), "data")
-channel_names = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz'] # 19 channels
+# channel_names = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz'] # 19 channels
 delta = [0.5,4] # Delta:   0.5 – 4   Hz   → Deep sleep, unconscious states
 theta = [4,8] # Theta:   4   – 8   Hz   → Drowsiness, meditation, creativity
 alpha = [8,13] # Alpha:   8   – 13  Hz   → Relaxed wakefulness, calm focus
@@ -14,43 +17,87 @@ gamma = [30,100] # Gamma:   30  – 100 Hz   → Higher cognitive functions, mem
 bands_freq = [delta, theta, alpha, beta, gamma]
 bands_names = ['Delta', 'Theta', 'Alpha', 'Beta', 'Gamma']
 
-# Load data
-csv_files = []
-used_csv_file_index: int = 0
-if os.path.isdir(data_folder):
-    files = [f for f in os.listdir(data_folder) if f.endswith('.csv')]
-    if files:
-        for i in range(len(files)):
-            csv_files.append(os.path.join(data_folder, files[i]))
-        print(f"Opening file: {csv_files[used_csv_file_index]}")
+
+def construct_mne_object():
+    # Create an empty Raw object with specified channels
+    n_channels = 1  # or your desired number
+    # Create empty data (0 samples)
+    data = np.zeros((n_channels, 0))
+    # Create minimal info
+    info = mne.create_info(["None"], 256, ch_types="eeg")
+    # Create Raw object
+    mne_raw = mne.io.RawArray(data, info)
+    return mne_raw
+
+def get_file(contents, file_name:str):
+    # Returns pandas DataFrame and column names from decoded contents
+    # contents are decoded from uploaded file
+    file_path = os.path.join(data_folder, file_name)
+    # decode contents
+    content_type, content_string = contents.split(',')
+    decoded = base64.b64decode(content_string)
+    if os.path.exists(file_path): 
+        print(f"Opening file: {file_name}")
     else:
         raise FileNotFoundError("No CSV file found in the dataset directory.")
-else:
-    raise NotADirectoryError(f"The path '{data_folder}' is not a directory.")
+    try:
+        if file_name.endswith(".csv"):
+            raw_data = pd.read_csv(
+                    io.StringIO(decoded.decode('utf-8')))
+            channels_info = list(raw_data.columns) # TODO: add support for named channels
+        elif file_name.endswith(".xls"):
+            raw_data = pd.read_excel(io.BytesIO(decoded))
+            channels_info = raw_data.columns
+        else:
+            raise TypeError
+    except ValueError:
+        print(f"Entered path: \"{file_path}\" is not a valid CSV file.")
+        print("Error reading CSV file. Please check the file format and content.")
+    return raw_data, channels_info
 
-try:
-    raw_data = pd.read_csv(csv_files[used_csv_file_index], names=channel_names)
-except ValueError:
-    print(f"Entered path: \"{data_folder}\" is not a valid CSV file.")
-    print("Error reading CSV file. Please check the file format and content.")
+def pd2mne(raw_data:pd.DataFrame):
+    # Convert DataFrame to mne object
+    info = mne.create_info(list(raw_data.columns), 256, ch_types="eeg")
+    mne_raw = mne.io.RawArray(raw_data.T, info)
+    return mne_raw
 
-# Create MNE Raw object and calculate PSD
-info = mne.create_info(channel_names, 256, ch_types="eeg")
-mne_raw = mne.io.RawArray(raw_data.T, info)
-psd = mne_raw.compute_psd()
+def calculate_psd(raw_data:pd.DataFrame):
+    # Create MNE Raw object and calculate PSD
+    mne_raw = pd2mne(raw_data)
+    psd = mne_raw.compute_psd()
+    return psd
 
 def get_power_band(spectrum:mne.time_frequency.Spectrum, band:list):
     fmin, fmax = band
     power, freqs = spectrum.get_data(return_freqs=True, fmin=fmin, fmax=fmax)
     return power, freqs
 
-def extract_all_power_bands(spectrum):
+def extract_all_power_bands(spectrum:mne.time_frequency.Spectrum):
     power_bands = []
     for band in bands_freq:
         power_bands.append(get_power_band(spectrum, band))
     return power_bands
 
-power_bands = extract_all_power_bands(psd)
+def power_band2csv(power_bands:list, channels:list):
+    pw_dic = {}
+    for i, band in enumerate(bands_names):
+        sel_band = power_bands[i]
+        freq = sel_band[1]
+        pw_dic[f"{band}_freq"] = freq
+        all_pow = sel_band[0]
+        # iterate channels
+        for j, chan in enumerate(channels):
+            pow = all_pow[j]
+            pw_dic[f"{chan}({band})_power"] = pow
+    # Find the maximum length
+    max_len = max(len(v) for v in pw_dic.values())
+    # Pad shorter lists with np.nan
+    for key, value in pw_dic.items():
+        if len(value) < max_len:
+            pw_dic[key] = np.pad(value, (0, max_len - len(value)), constant_values=np.nan)
+    df = pd.DataFrame(pw_dic)
+    return df
+
 
 ###
 ### Specific Vizaulization Functions

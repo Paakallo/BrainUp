@@ -1,13 +1,16 @@
 import os
+
+import mne
+import numpy as np
 from components.helpers import prepare_dataset
 # temporary workaround for deployment test
 if not os.path.exists("data"):
         prepare_dataset()
 
 import dash
-from dash import Input, Output, html
+from dash import Input, Output, State, html, dcc
 import plotly.graph_objects as go
-from components.data_acc import mne_raw, power_bands, bands_names, bands_freq, plot_raw_channels, plot_power_band
+from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band, power_band2csv
 from components.helpers import filter_data
 from components.layout import create_viz_data_layout
 
@@ -17,20 +20,62 @@ app.title = "BrainUp"
 app._favicon = "logo.png"
 server = app.server
 
+# Define global constants (in my opinion temporary solution)
+mne_raw = construct_mne_object()
+power_bands = []
+
 app.layout = create_viz_data_layout(mne_raw, bands_names)
 
+# Callback for uploading file and nuking the whole page
+@app.callback(
+        Output("name-channels", "data"),
+        Output("vis-type", "value"),
+        Output("band-dropdown", "value"),
+        Output("filter-frequency", "value"),
+        Output("custom-frequency-slider", "value"),
+        Input("up-file", "contents"),
+        Input("up-file", "filename"),
+        prevent_initial_call=True
+)
+def upload_file(file, filename):
+    global mne_raw, power_bands
+    # quit if nothing is uploaded
+    if filename is None:
+        return dash.no_update
+    
+    raw_data, channels_info = get_file(file, filename)
+    print("File uploaded")
+    
+    mne_raw = pd2mne(raw_data)
+    spectrum = calculate_psd(raw_data)
+    power_bands = extract_all_power_bands(spectrum)
+    # Return reset values for all components
+    return (
+        channels_info,
+        "raw",  # Default visualization type
+        None,  # No band selected
+        None,  # No filter selected
+        None,  # No custom frequency
+    )
+       
 # Callback for updating channel dropdown options
 @app.callback(
     Output("channel-dropdown", "options"),
-    Input("vis-type", "value")
+    Input("vis-type", "value"),
+    Input("name-channels", "data"),
+    prevent_initial_call=True
 )
-def update_channel_dropdown_options(vis_type):
-    return [{"label": ch, "value": ch} for ch in mne_raw.info["ch_names"]]
+def update_channel_dropdown_options(vis_type,name_channels):
+    # prevent updating channels without uploaded file
+    if not name_channels:
+        return dash.no_update
+    return [{"label": ch, "value": ch} for ch in name_channels]
 
 # Callback for updating the layout to allow multiple channel selection
 @app.callback(
     Output("channel-dropdown", "multi"),
-    Input("vis-type", "value")
+    Input("vis-type", "value"),
+    prevent_initial_call=True
 )
 def toggle_channel_multi_select(vis_type):
     return True  
@@ -68,7 +113,8 @@ def toggle_filter_selection_container(vis_type):
 @app.callback(
     Output("custom-frequency-container", "style"),
     [Input("filter-frequency", "value"),
-     Input("vis-type", "value")]
+     Input("vis-type", "value")],
+     prevent_initial_call=True
 )
 def toggle_custom_frequency_slider(filter_frequency, vis_type):
     if vis_type == "specific_band":
@@ -80,7 +126,8 @@ def toggle_custom_frequency_slider(filter_frequency, vis_type):
 # Callback for updating the layout to show/hide the band dropdown
 @app.callback(
     Output("band-dropdown-container", "style"),
-    Input("vis-type", "value")
+    Input("vis-type", "value"),
+    prevent_initial_call=True
 )
 def toggle_band_dropdown_visibility(vis_type):
     if vis_type == "specific_band":
@@ -95,7 +142,8 @@ def toggle_band_dropdown_visibility(vis_type):
      Input("channel-dropdown", "value"),
      Input("band-dropdown", "value"),
      Input("filter-frequency", "value"),
-     Input("custom-frequency-slider", "value")]
+     Input("custom-frequency-slider", "value")],
+     prevent_initial_call=True
 )
 def update_plot(vis_type, selected_channels, selected_band, filter_frequency, custom_range):
     fig = go.Figure()
@@ -114,6 +162,8 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
 
     # PSD visualization for specific band
     if vis_type == "specific_band":
+        if selected_band is None:
+            return dash.no_update
         band_data = plot_power_band(power_bands, selected_band, mne_raw, "all")
         for ch_name, freqs, power in band_data:
             if ch_name in selected_channels:
@@ -144,6 +194,15 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
     
     return fig
 
+@app.callback(
+    Output("download-dataframe-csv", "data"),
+    Input("pw-button", "n_clicks"),
+    State("name-channels", "data"),
+    prevent_initial_call=True,
+)
+def download_power_band(n_clicks, name_channels):
+    df = power_band2csv(power_bands, name_channels)
+    return dcc.send_data_frame(df.to_csv, "power_bands.csv")
 
 if __name__ == "__main__":
     app.run(debug=True)
