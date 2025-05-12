@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import uuid
+import pyxdf
 
 # Define constants
 data_folder = os.path.join(os.getcwd(), "data")
@@ -47,6 +49,11 @@ def get_file(contents, file_name:str):
         elif file_name.endswith(".xls"):
             raw_data = pd.read_excel(io.BytesIO(decoded))
             raw_data, channels_info = check_columns(raw_data)
+        elif file_name.endswith("edf"):
+            raw_data = mne.io.read_raw_edf(create_file(contents, "edf"), preload=True) # temporarily hardcoded
+            channels_info = raw_data.ch_names
+        elif file_name.endswith("xdf"):
+            raw_data, channels_info = read_raw_xdf(create_file(contents, "xdf"))
         else:
             raise TypeError
     except ValueError:
@@ -54,7 +61,42 @@ def get_file(contents, file_name:str):
         print("Error reading CSV file. Please check the file format and content.")
     return raw_data, channels_info
 
+def read_raw_xdf(fname:str):
+    streams, header = pyxdf.load_xdf(fname)
+    # find the stream with EEG data
+    eeg_stream = None
+    for stream in streams:
+        print(stream['info']['type'][0].lower())
+        if stream['info']['type'][0].lower() == 'eeg':
+            eeg_stream = stream
+            break
+    if eeg_stream is None:
+        raise RuntimeError("No EEG stream found in the XDF file.")
+    # prepare data and frequency
+    data = np.array(eeg_stream["time_series"]).T # shape (n_channels, n_times)
+    sfreq = float(streams[0]["info"]["nominal_srate"][0])
+    # channel names
+    if eeg_stream['info']['desc'][0] != None:
+        ch_names = [ch['label'][0] for ch in eeg_stream['info']['desc'][0]['channels'][0]['channel']]
+    else:
+        n_channels = int(eeg_stream['info']['channel_count'][0])
+        ch_names = [f"CH{i+1}" for i in range(n_channels)]
+    ch_types = ['eeg'] * len(ch_names)
+    # create mne object
+    info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types)
+    raw_data = mne.io.RawArray(data, info)
+    return raw_data, ch_names
+
+def create_file(content, file_type):
+    # create temporary file stored in data
+    data = content.encode("utf8").split(b";base64,")[1]
+    save_path = os.path.join("data", f"{uuid.uuid4()}.{file_type}")
+    with open(save_path, "wb") as fp:
+        fp.write(base64.decodebytes(data))
+    return save_path
+
 def check_columns(import_data:pd.DataFrame):
+    # filter data and choose appropriate column names
     df = import_data.select_dtypes(include=['number']) # select onlu numeric values
     columns = list(df.columns)
     channels_info = [] # output
@@ -76,6 +118,8 @@ def check_columns(import_data:pd.DataFrame):
 
 def pd2mne(raw_data:pd.DataFrame):
     # Convert DataFrame to mne object
+    if not isinstance(raw_data, pd.DataFrame):
+        return raw_data
     info = mne.create_info(list(raw_data.columns), 256, ch_types="eeg")
     mne_raw = mne.io.RawArray(raw_data.T, info)
     return mne_raw
@@ -129,6 +173,7 @@ def plot_raw_channels(raw, channel_names):
         raise ValueError(f"None of the selected channels were found in the data.")
     
     data, times = raw[channel_indices]
+    print(data)
     return times, data
 
 # Function to plot PSD for a channel across all bands
