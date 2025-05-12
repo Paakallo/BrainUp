@@ -6,6 +6,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 
+import pyxdf
+
 # Define constants
 data_folder = os.path.join(os.getcwd(), "data")
 # channel_names = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz'] # 19 channels
@@ -51,8 +53,32 @@ def get_file(contents, file_name:str):
             raw_data = mne.io.read_raw_edf("data/ex.edf", preload=True) # temporarily hardcoded
             channels_info = raw_data.ch_names
         elif file_name.endswith("xdf"):
-            # raw_data = mne.io.read_raw_xdf("data/example.xdf", preload=True) # temporarily hardcoded
-            pass
+            fname = "data/example.xdf"
+            streams, header = pyxdf.load_xdf(fname)
+
+            # Find the stream with EEG data (adjust based on your data)
+            eeg_stream = None
+            for stream in streams:
+                print(stream['info']['type'][0].lower())
+                if stream['info']['type'][0].lower() == 'eeg':
+                    print("ok")
+                    eeg_stream = stream
+                    break
+            if eeg_stream is None:
+                raise RuntimeError("No EEG stream found in the XDF file.")
+
+            data = np.array(eeg_stream["time_series"]).T
+            sfreq = float(streams[0]["info"]["nominal_srate"][0])
+
+            if eeg_stream['info']['desc'][0] != None:
+                ch_names = [ch['label'][0] for ch in eeg_stream['info']['desc'][0]['channels'][0]['channel']]
+            else:
+                n_channels = int(eeg_stream['info']['channel_count'][0])
+                ch_names = [f"CH{i+1}" for i in range(n_channels)]
+            ch_types = ['eeg'] * len(ch_names)
+            info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types)
+            raw_data = mne.io.RawArray(data, info)
+            channels_info = ch_names
         else:
             raise TypeError
     except ValueError:
