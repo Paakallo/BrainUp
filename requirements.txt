@@ -1,6 +1,7 @@
 # Data manipulation and analysis
 pandas
 numpy
+pyxdf
 
 # Signal processing
 mne
