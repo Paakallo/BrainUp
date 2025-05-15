@@ -31,34 +31,30 @@ def construct_mne_object():
     mne_raw = mne.io.RawArray(data, info)
     return mne_raw
 
-def get_file(contents, file_name:str):
+def get_file(contents, file_name: str):
     # Returns pandas DataFrame and column names from decoded contents
     # contents are decoded from uploaded file
-    file_path = os.path.join(data_folder, file_name)
-    # decode contents
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
-    if os.path.exists(file_path): 
-        print(f"Opening file: {file_name}")
-    else:
-        raise FileNotFoundError("No file found in the dataset directory.")
+
     try:
         if file_name.endswith(".csv"):
             raw_data = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
             raw_data, channels_info = check_columns(raw_data)
-        elif file_name.endswith(".xls"): # Test needed
+        elif file_name.endswith(".xls"):  # Test needed
             raw_data = pd.read_excel(io.BytesIO(decoded))
             raw_data, channels_info = check_columns(raw_data)
         elif file_name.endswith(".edf"):
-            raw_data = mne.io.read_raw_edf(create_file(contents, "edf"), preload=True) # temporarily hardcoded
+            raw_data = mne.io.read_raw_edf(create_file(contents, "edf"), preload=True)
             channels_info = raw_data.ch_names
         elif file_name.endswith(".xdf"):
             raw_data, channels_info = read_raw_xdf(create_file(contents, "xdf"))
         else:
-            raise TypeError
-    except ValueError:
-        print(f"Entered path: \"{file_path}\" is not a valid CSV file.")
-        print("Error reading file. Please check the file format and content.")
+            raise TypeError("Unsupported file type.")
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        raise ValueError("Error reading file. Please check the file format and content.")
+    
     return raw_data, channels_info
 
 def read_raw_xdf(fname:str):

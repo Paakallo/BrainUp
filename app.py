@@ -20,53 +20,73 @@ server = app.server
 # Define global constants (in my opinion temporary solution)
 mne_raw = construct_mne_object()
 power_bands = []
+number_of_channels = 0
 
-app.layout = create_viz_data_layout(mne_raw, bands_names)
+app.layout = create_viz_data_layout(mne_raw, bands_names, number_of_channels)
 
-# Callback for uploading file and nuking the whole page
 @app.callback(
-        Output("name-channels", "data"),
-        Output("vis-type", "value"),
-        Output("band-dropdown", "value"),
-        Output("filter-frequency", "value"),
-        Output("custom-frequency-slider", "value"),
-        Input("upload-file-zone", "contents"),
-        Input("upload-file-zone", "filename"),
-        prevent_initial_call=True
-)
-def upload_file(file, filename):
-    global mne_raw, power_bands
-    # quit if nothing is uploaded
-    if filename is None:
-        return dash.no_update
-    
-    raw_data, channels_info = get_file(file, filename)
-    print("File uploaded")
-    
-    mne_raw = pd2mne(raw_data)
-    spectrum = calculate_psd(raw_data)
-    power_bands = extract_all_power_bands(spectrum)
-    # Return reset values for all components
-    return (
-        channels_info,
-        "raw",  # Default visualization type
-        None,  # No band selected
-        None,  # No filter selected
-        None,  # No custom frequency
-    )
-
-# Callback for updating the layout to show/hide the band dropdown
-@app.callback(
-    Output("main-container", "style"),
-    Input("name-channels", "data"),
+    Output("name-channels", "data"),
+    Output("number-of-channels", "data"),
+    Output("vis-type", "value"),
+    Output("band-dropdown", "value"),
+    Output("filter-frequency", "value"),
+    Output("custom-frequency-slider", "value"),
+    Input("upload-file-zone", "contents"),
+    Input("upload-file-zone", "filename"),
     prevent_initial_call=True
 )
-def toggle_band_dropdown_visibility(name_channels):
-    if name_channels == None:
-        return {"display": "none"}
-    else:
-        return {"display": "block"}
+def upload_file(file, filename):
+    print("Callback triggered")
+    
+    if filename is None:
+        print("No file uploaded")
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
+    raw_data, channels_info = get_file(file, filename)
+    print(f"File uploaded: {filename}")
+    
+    global mne_raw, power_bands
+    mne_raw = pd2mne(raw_data)
+    power_bands = extract_all_power_bands(calculate_psd(raw_data))
+    number_of_channels = len(channels_info)
+    
+    return (
+        channels_info,
+        number_of_channels,
+        "raw",
+        None,
+        None,
+        None,
+    )
+
+@app.callback(
+    Output("channel-assignment-container", "children"),
+    Input("number-of-channels", "data"),
+    prevent_initial_call=True
+)
+def update_channel_assignment_layout(number_of_channels):
+    print(f"Updating channel assignment layout for {number_of_channels} channels")
+    from components.layout import create_channel_assignment_row
+    return [
+        create_channel_assignment_row(i) for i in range(number_of_channels)
+    ]
+
+# Callback for updating the layout to show/hide manually assigned channels
+@app.callback(
+    Output("channel-assignment-container", "style"),
+    Input("assign-channels-manually-button", "n_clicks"),
+    prevent_initial_call=True
+)
+def channel_assigment_visibility(n_clicks):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update
+
+    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    if triggered_id == "assign-channels-manually-button":
+        return {"display": "block"}  
+    return {"display": "none"}
+    
 # Callback for updating channel dropdown options
 @app.callback(
     Output("channel-dropdown", "options"),
@@ -167,8 +187,6 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
     elif filter_frequency == "high":
         filtered_raw = filter_data(filtered_raw, low_freq=25)
     elif filter_frequency == "custom":
-        if custom_range is None or len(custom_range) != 2:
-            custom_range = [5, 10]
         filtered_raw = filter_data(filtered_raw, low_freq=custom_range[0], high_freq=custom_range[1])
 
     # PSD visualization for specific band
