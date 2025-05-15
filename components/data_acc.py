@@ -22,7 +22,7 @@ bands_names = ['Delta', 'Theta', 'Alpha', 'Beta', 'Gamma']
 
 def construct_mne_object():
     # Create an empty Raw object with specified channels
-    n_channels = 1  # or your desired number
+    n_channels = 1  
     # Create empty data (0 samples)
     data = np.zeros((n_channels, 0))
     # Create minimal info
@@ -41,24 +41,24 @@ def get_file(contents, file_name:str):
     if os.path.exists(file_path): 
         print(f"Opening file: {file_name}")
     else:
-        raise FileNotFoundError("No CSV file found in the dataset directory.")
+        raise FileNotFoundError("No file found in the dataset directory.")
     try:
         if file_name.endswith(".csv"):
             raw_data = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
             raw_data, channels_info = check_columns(raw_data)
-        elif file_name.endswith(".xls"):
+        elif file_name.endswith(".xls"): # Test needed
             raw_data = pd.read_excel(io.BytesIO(decoded))
             raw_data, channels_info = check_columns(raw_data)
-        elif file_name.endswith("edf"):
+        elif file_name.endswith(".edf"):
             raw_data = mne.io.read_raw_edf(create_file(contents, "edf"), preload=True) # temporarily hardcoded
             channels_info = raw_data.ch_names
-        elif file_name.endswith("xdf"):
+        elif file_name.endswith(".xdf"):
             raw_data, channels_info = read_raw_xdf(create_file(contents, "xdf"))
         else:
             raise TypeError
     except ValueError:
         print(f"Entered path: \"{file_path}\" is not a valid CSV file.")
-        print("Error reading CSV file. Please check the file format and content.")
+        print("Error reading file. Please check the file format and content.")
     return raw_data, channels_info
 
 def read_raw_xdf(fname:str):

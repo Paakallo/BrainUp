@@ -33,8 +33,8 @@ app.layout = create_viz_data_layout(mne_raw, bands_names)
         Output("band-dropdown", "value"),
         Output("filter-frequency", "value"),
         Output("custom-frequency-slider", "value"),
-        Input("up-file", "contents"),
-        Input("up-file", "filename"),
+        Input("upload-file-zone", "contents"),
+        Input("upload-file-zone", "filename"),
         prevent_initial_call=True
 )
 def upload_file(file, filename):
@@ -57,7 +57,19 @@ def upload_file(file, filename):
         None,  # No filter selected
         None,  # No custom frequency
     )
-       
+
+# Callback for updating the layout to show/hide the band dropdown
+@app.callback(
+    Output("main-container", "style"),
+    Input("name-channels", "data"),
+    prevent_initial_call=True
+)
+def toggle_band_dropdown_visibility(name_channels):
+    if name_channels == None:
+        return {"display": "none"}
+    else:
+        return {"display": "block"}
+
 # Callback for updating channel dropdown options
 @app.callback(
     Output("channel-dropdown", "options"),
@@ -65,7 +77,7 @@ def upload_file(file, filename):
     Input("name-channels", "data"),
     prevent_initial_call=True
 )
-def update_channel_dropdown_options(vis_type,name_channels):
+def update_channel_dropdown_options(vis_type, name_channels):
     # prevent updating channels without uploaded file
     if not name_channels:
         return dash.no_update
@@ -158,6 +170,8 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
     elif filter_frequency == "high":
         filtered_raw = filter_data(filtered_raw, low_freq=25)
     elif filter_frequency == "custom":
+        if custom_range is None or len(custom_range) != 2:
+            custom_range = [5, 10]
         filtered_raw = filter_data(filtered_raw, low_freq=custom_range[0], high_freq=custom_range[1])
 
     # PSD visualization for specific band
@@ -196,13 +210,14 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
 
 @app.callback(
     Output("download-dataframe-csv", "data"),
-    Input("pw-button", "n_clicks"),
+    Input("download-button", "n_clicks"),
     State("name-channels", "data"),
     prevent_initial_call=True,
 )
 def download_power_band(n_clicks, name_channels):
     df = power_band2csv(power_bands, name_channels)
     return dcc.send_data_frame(df.to_csv, "power_bands.csv")
+
 
 if __name__ == "__main__":
     app.run(debug=True)
