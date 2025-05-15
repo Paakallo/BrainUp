@@ -1,12 +1,7 @@
 import os
-
 import mne
 import numpy as np
 from components.helpers import prepare_dataset
-# temporary workaround for deployment test
-if not os.path.exists("data"):
-        prepare_dataset()
-
 import dash
 from dash import Input, Output, State, html, dcc
 import plotly.graph_objects as go
@@ -14,6 +9,8 @@ from components.data_acc import calculate_psd, construct_mne_object, extract_all
 from components.helpers import filter_data
 from components.layout import create_viz_data_layout
 
+if not os.path.exists("data"):
+        prepare_dataset()
 
 app = dash.Dash(__name__)
 app.title = "BrainUp"  

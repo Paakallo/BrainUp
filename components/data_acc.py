@@ -10,7 +10,7 @@ import pyxdf
 
 # Define constants
 data_folder = os.path.join(os.getcwd(), "data")
-# channel_names = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz'] # 19 channels
+channels_names = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz'] # 19 channels
 delta = [0.5,4] # Delta:   0.5 – 4   Hz   → Deep sleep, unconscious states
 theta = [4,8] # Theta:   4   – 8   Hz   → Drowsiness, meditation, creativity
 alpha = [8,13] # Alpha:   8   – 13  Hz   → Relaxed wakefulness, calm focus
