@@ -11,9 +11,9 @@ import dash
 from dash import Input, Output, State, html, dcc
 import plotly.graph_objects as go
 from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band, power_band2csv
-from components.helpers import filter_data
+from components.helpers import filter_data, cleanup_expired_files, start_data_thread
 from components.layout import create_viz_data_layout
-
+import threading
 
 app = dash.Dash(__name__)
 app.title = "BrainUp"  
@@ -25,6 +25,9 @@ mne_raw = construct_mne_object()
 power_bands = []
 
 app.layout = create_viz_data_layout(mne_raw, bands_names)
+
+# threading.Thread(target=cleanup_expired_files, daemon=True).start()
+start_data_thread()
 
 # Callback for uploading file and nuking the whole page
 @app.callback(
