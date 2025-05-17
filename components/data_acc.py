@@ -34,14 +34,11 @@ def construct_mne_object():
 def get_file(contents, file_name:str):
     # Returns pandas DataFrame and column names from decoded contents
     # contents are decoded from uploaded file
-    file_path = os.path.join(data_folder, file_name)
+ 
     # decode contents
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
-    if os.path.exists(file_path): 
-        print(f"Opening file: {file_name}")
-    else:
-        raise FileNotFoundError("No file found in the dataset directory.")
+
     try:
         if file_name.endswith(".csv"):
             raw_data = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
@@ -57,7 +54,7 @@ def get_file(contents, file_name:str):
         else:
             raise TypeError
     except ValueError:
-        print(f"Entered path: \"{file_path}\" is not a valid CSV file.")
+        # print(f"Entered path: \"{file_path}\" is not a valid CSV file.")
         print("Error reading file. Please check the file format and content.")
     return raw_data, channels_info
 
