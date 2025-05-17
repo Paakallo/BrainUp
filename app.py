@@ -1,11 +1,8 @@
 import os
-
-import mne
-import numpy as np
-from components.helpers import prepare_dataset
+from components.helpers import initialize
 # temporary workaround for deployment test
 if not os.path.exists("data"):
-        prepare_dataset()
+        initialize()
 
 import dash
 from dash import Input, Output, State, html, dcc

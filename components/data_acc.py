@@ -88,24 +88,6 @@ def read_raw_xdf(fname:str):
     raw_data = mne.io.RawArray(data, info)
     return raw_data, ch_names
 
-# def create_file(content, file_type):
-#     # create temporary file stored in data
-#     data = content.encode("utf8").split(b";base64,")[1]
-#     file_name = f"{uuid.uuid4()}.{file_type}"
-#     save_path = os.path.join("data", f"{file_name}")
-#     with open(save_path, "wb") as fp:
-#         fp.write(base64.decodebytes(data))
-#     # read temp_files.json
-#     with open("temp_files.json", "r") as f:
-#         file = json.load(f)
-#     # set cooldown for a temp file
-#     file[file_name] = (datetime.datetime.now() + datetime.timedelta(minutes=2)).isoformat()
-#     # write json
-#     print(f"Adding {file_name} to temp_files")
-#     with open("temp_files.json", "w") as f:
-#         json.dump(file, f)
-#     return save_path
-
 def check_columns(import_data:pd.DataFrame):
     # filter data and choose appropriate column names
     df = import_data.select_dtypes(include=['number']) # select onlu numeric values
