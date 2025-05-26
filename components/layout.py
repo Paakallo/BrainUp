@@ -26,7 +26,7 @@ def create_channel_assignment_row(channel_number, channels_names, value=None):
                 id=f"channel-assignment-dropdown-{channel_number}",
                 options=[{"label": ch, "value": ch} for ch in channels_names],
                 placeholder=f"Assign name to Channel {channel_number + 1}",
-                value=value  # Pre-select value if provided
+                value=value  
             )
         ],
         id=f"channel-assignment-row-container-{channel_number}",
@@ -95,6 +95,13 @@ def create_channel_name_assignment():
                         children=[],  # Placeholder for dynamic rows
                         style={"display": "none"},
                     ),
+                    html.Button(
+                        "Confirm Assignments",
+                        id="assign-channels-confirm-button",
+                        n_clicks=0,
+                        className="assign-button",
+                        style={"display": "none"},
+                    ),
                 ],
                 id="channels-all-rows-assignment-container",
             ),
@@ -104,6 +111,7 @@ def create_channel_name_assignment():
     )
 
 def create_main_visualization_container(mne_raw, bands_names):
+    from app import assigned_channels_names  # Import the global list
     return html.Div(
         [
             dcc.RadioItems(
@@ -119,7 +127,7 @@ def create_main_visualization_container(mne_raw, bands_names):
             dcc.Dropdown(
                 id="channel-dropdown",
                 options=[{"label": "All Channels", "value": "all"}] +
-                        [{"label": ch, "value": ch} for ch in mne_raw.info["ch_names"]],
+                        [{"label": ch, "value": ch} for ch in assigned_channels_names],
                 value=None,
             ),
             html.Div(

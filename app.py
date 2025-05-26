@@ -23,6 +23,7 @@ mne_raw = construct_mne_object()
 power_bands = []
 number_of_channels = 0
 channels_names = channels_names_21 # Default channel names for 21 electrodes
+assigned_channels_names = []  
 
 app.layout = html.Div([
     create_viz_data_layout(mne_raw, bands_names, number_of_channels),
@@ -65,8 +66,8 @@ def upload_file(file, filename):
 
 # Callback for updating the layout to show channel name asigment container when file is uploaded
 @app.callback(
-        Output("channels-name-assignment-container", "style"),
-        Input("number-of-channels", "data")
+    Output("channels-name-assignment-container", "style"),
+    Input("number-of-channels", "data")
 )
 def channel_assigment_visibility(number_of_channels):
     if number_of_channels > 0:
@@ -80,6 +81,7 @@ def channel_assigment_visibility(number_of_channels):
     Output("electrode-image", "src"),
     Output("channel-assignment-container", "style", allow_duplicate=True),
     Output("channels-names-store", "data"),
+    Output("assign-channels-confirm-button", "style", allow_duplicate=True),
     Input("prev-electrode-view", "n_clicks"),
     Input("next-electrode-view", "n_clicks"),
     State("electrode-view-store", "data"),
@@ -90,7 +92,7 @@ def update_electrode_view(prev_clicks, next_clicks, current_view):
 
     ctx = dash.callback_context
     if not ctx.triggered:
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
     button_id = ctx.triggered[0]["prop_id"].split(".")[0]
     
@@ -107,9 +109,9 @@ def update_electrode_view(prev_clicks, next_clicks, current_view):
             channels_names = channels_names_21
             
         # Return the new state and image source
-        return {"type": new_view}, f"assets/{new_view}.svg", {"display": "none"}, channels_names
+        return {"type": new_view}, f"assets/{new_view}.svg", {"display": "none"}, channels_names, {"display": "none"}
     
-    return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+    return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
 # Callback for updating channel assignment rows based on the number of channels and channel names
 @app.callback(
@@ -296,6 +298,7 @@ def download_power_band(n_clicks, name_channels):
     Output("channel-assignment-container", "style"),
     Output("channel-dropdown", "value", allow_duplicate=True),
     Output("channel-assignment-container", "children", allow_duplicate=True),
+    Output("assign-channels-confirm-button", "style", allow_duplicate=True),
     Input("assign-channels-manually-button", "n_clicks"),
     State("number-of-channels", "data"),
     State("channels-names-store", "data"),
@@ -310,14 +313,15 @@ def channel_assigment_rows_visibility(n_clicks, number_of_channels, channels_nam
             value = None  # <-- Make every selection empty
             preselected.append(value)
             children.append(create_channel_assignment_row(i, channels_names, value))
-        return {"display": "block"}, preselected, children
-    return dash.no_update, dash.no_update, dash.no_update
+        return {"display": "block"}, preselected, children, {"display": "block"}
+    return dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
 # Callback for "Assign Automatically" button
 @app.callback(
     Output("channel-assignment-container", "style", allow_duplicate=True),
     Output("channel-dropdown", "value", allow_duplicate=True),
     Output("channel-assignment-container", "children", allow_duplicate=True),
+    Output("assign-channels-confirm-button", "style", allow_duplicate=True),
     Input("assign-channels-automaticlly-button", "n_clicks"),
     State("number-of-channels", "data"),
     State("channels-names-store", "data"),
@@ -332,8 +336,36 @@ def channel_assigment_auto_rows_visibility(n_clicks, number_of_channels, channel
             value = channels_names[i] if i < len(channels_names) else None
             preselected.append(value)
             children.append(create_channel_assignment_row(i, channels_names, value))
-        return {"display": "block"}, preselected, children
-    return dash.no_update, dash.no_update, dash.no_update
+        return {"display": "block"}, preselected, children, {"display": "block"}
+    return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+@app.callback(
+    Output("channels-names-store", "data", allow_duplicate=True),
+    Output("channels-name-assignment-container", "style", allow_duplicate=True),
+    Output("main-container", "style"),
+    Input("assign-channels-confirm-button", "n_clicks"),
+    State("channel-assignment-container", "children"),
+    prevent_initial_call=True
+)
+def confirm_channel_assignments(n_clicks, channel_assignment_rows):
+    global assigned_channels_names
+    assigned_channels_names = []
+    if n_clicks is None or n_clicks == 0:
+        return dash.no_update, dash.no_update, dash.no_update
+
+    # Extract channel names from the rows
+    new_channel_names = []
+    for i, row in enumerate(channel_assignment_rows):
+        channel_name = row["props"]["children"][1]["props"]["value"]
+        if channel_name is None:
+            channel_name = f"Channel {i + 1}"
+        new_channel_names.append(channel_name)
+
+    # Append new assignments to the global list
+    assigned_channels_names += new_channel_names
+
+    print(f"Confirmed channel assignments: {assigned_channels_names}")
+    return assigned_channels_names, {"display": "none"}, {"display": "block"}
 
 if __name__ == "__main__":
     app.run(debug=True)
