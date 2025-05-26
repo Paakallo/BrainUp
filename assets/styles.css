@@ -155,3 +155,53 @@ label {
 .assign-button:hover {
     background-color: #0056b3; /* Darker blue on hover */
 }
+
+/* Updated styles for channels-image-container */
+#channels-image-container, #channels-all-rows-assignment-container {
+    border: 1px solid black;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 20px;
+    background-color: #ffffff;
+}
+
+/* Electrode navigation styles */
+.electrode-navigation-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.electrode-nav-button {
+    background: #007bff; 
+    border: 1px solid #ccc;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    font-size: 30px;
+    color: white; 
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.electrode-nav-button:hover {
+    background-color: #0056b3; /* Darker blue on hover */
+}
+
+.prev-electrode-button {
+    margin-right: 15px;
+}
+
+.next-electrode-button {
+    margin-left: 15px;
+}
+
+.electrode-image {
+    max-width: 70%;
+    height: auto;
+}

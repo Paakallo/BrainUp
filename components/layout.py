@@ -1,7 +1,6 @@
 from dash import dcc, html
-from components.data_acc import channels_names  # Import channels_names
 
-number_of_channels = 0  # Default value; will be updated dynamically
+number_of_channels = 0  
 
 def create_header():
     return html.Div(
@@ -19,17 +18,47 @@ def create_upload_section():
         children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
     )
 
-def create_channel_assignment_row(channel_number):
+def create_channel_assignment_row(channel_number, channels_names, value=None):
     return html.Div(
         [
             html.H3(f"Channel {channel_number + 1}", id=f"channel-assignment-label-{channel_number}"),
             dcc.Dropdown(
                 id=f"channel-assignment-dropdown-{channel_number}",
-                options=[{"label": ch, "value": ch} for ch in channels_names],  # Populate dropdown with channels_names
+                options=[{"label": ch, "value": ch} for ch in channels_names],
                 placeholder=f"Assign name to Channel {channel_number + 1}",
+                value=value  # Pre-select value if provided
             )
         ],
         id=f"channel-assignment-row-container-{channel_number}",
+    )
+
+def create_electrode_navigation():
+    """Create the electrode navigation component with left/right arrows."""
+    return html.Div(
+        className="electrode-navigation-container",
+        children=[
+            # Left arrow
+            html.Button(
+                "←",
+                id="prev-electrode-view",
+                className="electrode-nav-button prev-electrode-button",
+            ),
+            
+            # Electrode image
+            html.Img(
+                id="electrode-image",
+                src="/assets/21_electrodes.svg", 
+                alt="Electrodes", 
+                className="electrode-image",
+            ),
+            
+            # Right arrow
+            html.Button(
+                "→",
+                id="next-electrode-view",
+                className="electrode-nav-button next-electrode-button",
+            ),
+        ]
     )
 
 def create_channel_name_assignment():
@@ -37,9 +66,9 @@ def create_channel_name_assignment():
         [
             html.Div(
                 [
-                    html.Img(src="/assets/21_electrodes.svg", alt="21 Electrodes (10/20)", id="channels-image"),
+                    create_electrode_navigation(),
                 ],
-                id="channels-image-container",
+                id="channels-image-container"
             ),
             html.Div(
                 [
@@ -67,9 +96,11 @@ def create_channel_name_assignment():
                         style={"display": "none"},
                     ),
                 ],
+                id="channels-all-rows-assignment-container",
             ),
         ],
         id="channels-name-assignment-container",
+        style={"display": "none"},
     )
 
 def create_main_visualization_container(mne_raw, bands_names):
@@ -156,6 +187,8 @@ def create_viz_data_layout(mne_raw, bands_names, number_of_channels):
     return html.Div([
         dcc.Store(id="name-channels", data=False),
         dcc.Store(id="number-of-channels", data=number_of_channels),
+        dcc.Store(id="electrode-view-store", data={"type": "21_electrodes"}),  
+        dcc.Store(id="channels-names-store", data=[]),  # <-- Add this line
         create_header(),
         create_upload_section(),
         html.Br(),
