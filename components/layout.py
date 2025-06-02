@@ -34,6 +34,7 @@ def create_viz_data_layout(mne_raw, bands_names):
                     options=[
                         {"label": "Raw Signal", "value": "raw"},
                         {"label": "PSD for Specific Band", "value": "specific_band"},
+                        {"label": "Topo", "value":"topo"},
                     ],
                     value="raw",
                     inline=True,

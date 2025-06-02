@@ -1,13 +1,14 @@
 import os
+from plotly.tools import mpl_to_plotly
 from components.helpers import initialize
 # temporary workaround for deployment test
-if not os.path.exists("data"):
+if not os.path.exists("data") or not os.path.exists("temp_files.json"):
         initialize()
 
 import dash
 from dash import Input, Output, State, html, dcc
 import plotly.graph_objects as go
-from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band, power_band2csv
+from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band, power_band2csv, create_top_map
 from components.helpers import filter_data, cleanup_expired_files, start_data_thread
 from components.layout import create_viz_data_layout
 import threading
@@ -20,6 +21,7 @@ server = app.server
 # Define global constants (in my opinion temporary solution)
 mne_raw = construct_mne_object()
 power_bands = []
+spectrum = None
 
 app.layout = create_viz_data_layout(mne_raw, bands_names)
 
@@ -38,7 +40,7 @@ start_data_thread()
         prevent_initial_call=True
 )
 def upload_file(file, filename):
-    global mne_raw, power_bands
+    global mne_raw, spectrum, power_bands
     # quit if nothing is uploaded
     if filename is None:
         return dash.no_update
@@ -205,7 +207,11 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
             xaxis=dict(autorange=True),  
             yaxis=dict(range=[-100, 100]) 
         )
-    
+
+    # Display topographic map
+    elif vis_type == "topo":
+       mat_fig = create_top_map(spectrum)       
+       fig = mpl_to_plotly(mat_fig)
     return fig
 
 @app.callback(
