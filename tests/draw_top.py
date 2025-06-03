@@ -43,7 +43,7 @@ mne_raw = mne.io.RawArray(raw_data.T, info)
 print(mne_raw.get_montage())
 mne_raw.set_montage(mont)
 
-# psd = mne_raw.compute_psd()
+psd = mne_raw.compute_psd()
 
-# psd.plot_topomap(ch_type='eeg')
+psd.plot_topomap(ch_type='eeg')
 

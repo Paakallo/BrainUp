@@ -60,7 +60,7 @@ def create_file(content, file_type):
     elif file_type == ".png":
         file_name = f"{uuid.uuid4()}.{file_type}"
         save_path = os.path.join("data", file_name)
-        content.savefig(save_path)
+        content.savefig(save_path, bbox_inches="tight")
     else:
         raise TypeError
 

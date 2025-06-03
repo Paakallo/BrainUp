@@ -110,7 +110,7 @@ def check_columns(import_data:pd.DataFrame):
     df.columns = channel_names
 
     # uncomment to defy hardcoding
-    df.columns = channels_info
+    # df.columns = channels_info
     return df, channels_info
 
 def pd2mne(raw_data:pd.DataFrame):
@@ -184,7 +184,17 @@ def set_mont(data_ch:list):
     return mont1020_new
 
 def create_top_map(psd_data:mne.time_frequency.spectrum.Spectrum):
+    # topo_fig = psd_data.plot_topomap(ch_type='eeg', show=False, size=100, res=100)
     topo_fig = psd_data.plot_topomap(ch_type='eeg', show=False)
+    #TODO: adjust to monitor resolution
+    screen_width_px = 1620 
+    screen_height_px = 1080 
+    dpi = 100  
+
+    width_in = screen_width_px / dpi
+    height_in = screen_height_px / dpi
+
+    topo_fig.set_size_inches(width_in, height_in)
     return topo_fig
 ###
 ### Specific Vizaulization Functions
