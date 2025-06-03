@@ -1,13 +1,17 @@
+import base64
 import os
-from components.helpers import initialize
+import plotly.express as px
+from plotly.tools import mpl_to_plotly
+from components.helpers import create_file, initialize
 # temporary workaround for deployment test
-if not os.path.exists("data"):
+if not os.path.exists("data") or not os.path.exists("temp_files.json"):
         initialize()
 
+from PIL import Image
 import dash
 from dash import Input, Output, State, html, dcc
 import plotly.graph_objects as go
-from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band, power_band2csv
+from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band, power_band2csv, create_top_map
 from components.helpers import filter_data, cleanup_expired_files, start_data_thread
 from components.layout import create_viz_data_layout
 import threading
@@ -20,6 +24,7 @@ server = app.server
 # Define global constants (in my opinion temporary solution)
 mne_raw = construct_mne_object()
 power_bands = []
+spectrum = None
 
 app.layout = create_viz_data_layout(mne_raw, bands_names)
 
@@ -38,7 +43,7 @@ start_data_thread()
         prevent_initial_call=True
 )
 def upload_file(file, filename):
-    global mne_raw, power_bands
+    global mne_raw, spectrum, power_bands
     # quit if nothing is uploaded
     if filename is None:
         return dash.no_update
@@ -150,6 +155,9 @@ def toggle_band_dropdown_visibility(vis_type):
 # Callback for updating the plot
 @app.callback(
     Output("eeg-plot", "figure"),
+    Output("eeg-plot", "style"),
+    Output("topo-img", "src"),
+    Output("topo-img", "style"),
     [Input("vis-type", "value"),
      Input("channel-dropdown", "value"),
      Input("band-dropdown", "value"),
@@ -158,10 +166,15 @@ def toggle_band_dropdown_visibility(vis_type):
      prevent_initial_call=True
 )
 def update_plot(vis_type, selected_channels, selected_band, filter_frequency, custom_range):
+    """
+    Update plot or display image
+    If vis_type == "topo", then eeg-plot element isn't updated and vice versa 
+    """
+
     fig = go.Figure()
-    
+    img = go.Image()    
     if not selected_channels:
-        return fig  
+        return fig, {"display": "none"}, dash.no_update, dash.no_update  
 
     # Apply frequency filtering
     filtered_raw = mne_raw.copy()  
@@ -205,8 +218,14 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
             xaxis=dict(autorange=True),  
             yaxis=dict(range=[-100, 100]) 
         )
-    
-    return fig
+
+    # Display topographic map
+    elif vis_type == "topo":
+        mat_fig = create_top_map(spectrum)       
+        img_path = create_file(mat_fig, ".png")
+        image = Image.open(img_path)
+        return dash.no_update, {"display": "none"}, image, {"display": "block"}
+    return fig, {"display": "block"}, dash.no_update, {"display": "none"} 
 
 @app.callback(
     Output("download-dataframe-csv", "data"),

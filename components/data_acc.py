@@ -14,7 +14,6 @@ from components.helpers import create_file
 
 # Define constants
 data_folder = os.path.join(os.getcwd(), "data")
-# channel_names = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz'] # 19 channels
 delta = [0.5,4] # Delta:   0.5 – 4   Hz   → Deep sleep, unconscious states
 theta = [4,8] # Theta:   4   – 8   Hz   → Drowsiness, meditation, creativity
 alpha = [8,13] # Alpha:   8   – 13  Hz   → Relaxed wakefulness, calm focus
@@ -106,7 +105,12 @@ def check_columns(import_data:pd.DataFrame):
         column_names_row = pd.DataFrame([df.columns.tolist()], columns=df.columns)
         df = pd.concat([column_names_row, df], ignore_index=True)
 
-    df.columns = channels_info
+    # hardcoded
+    channel_names = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz']
+    df.columns = channel_names
+
+    # uncomment to defy hardcoding
+    # df.columns = channels_info
     return df, channels_info
 
 def pd2mne(raw_data:pd.DataFrame):
@@ -120,6 +124,10 @@ def pd2mne(raw_data:pd.DataFrame):
 def calculate_psd(raw_data:pd.DataFrame):
     # Create MNE Raw object and calculate PSD
     mne_raw = pd2mne(raw_data)
+    # set_montage if it doesn't have it 
+    if mne_raw.get_montage() is None:
+        new_mon = set_mont(mne_raw.ch_names)
+        mne_raw.set_montage(new_mon)
     psd = mne_raw.compute_psd()
     return psd
 
@@ -154,7 +162,40 @@ def power_band2csv(power_bands:list, channels:list):
     df = pd.DataFrame(pw_dic)
     return df
 
+def set_mont(data_ch:list):
+    """
+    Change montage if mne_object doesn't have one
+    Standard montage is 10-20
+    """
+    # Form the 10-20 montage
+    mont1020 = mne.channels.make_standard_montage('standard_1020')
+    # Choose what chann`els you want to keep 
+    # Make sure that these channels exist e.g. T1 does not exist in the standard 10-20 EEG system!
+    kept_channels = data_ch 
+    ind = [i for (i, channel) in enumerate(mont1020.ch_names) if channel in kept_channels]
+    mont1020_new = mont1020.copy()
+    # Keep only the desired channels
+    mont1020_new.ch_names = [mont1020.ch_names[x] for x in ind]
+    kept_channel_info = [mont1020.dig[x+3] for x in ind]
+    # Keep the first three rows as they are the fiducial points information
+    mont1020_new.dig = mont1020.dig[0:3]+kept_channel_info
+    # mont1020.plot()
+    # mont1020_new.plot()
+    return mont1020_new
 
+def create_top_map(psd_data:mne.time_frequency.spectrum.Spectrum):
+    # topo_fig = psd_data.plot_topomap(ch_type='eeg', show=False, size=100, res=100)
+    topo_fig = psd_data.plot_topomap(ch_type='eeg', show=False)
+    #TODO: adjust to monitor resolution
+    screen_width_px = 1620 
+    screen_height_px = 1080 
+    dpi = 100  
+
+    width_in = screen_width_px / dpi
+    height_in = screen_height_px / dpi
+
+    topo_fig.set_size_inches(width_in, height_in)
+    return topo_fig
 ###
 ### Specific Vizaulization Functions
 ###
