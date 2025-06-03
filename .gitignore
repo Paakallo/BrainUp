@@ -178,3 +178,4 @@ cython_debug/
 
 temp/
 data/*
+temp_files.json
