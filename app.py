@@ -1,10 +1,13 @@
+import base64
 import os
+import plotly.express as px
 from plotly.tools import mpl_to_plotly
-from components.helpers import initialize
+from components.helpers import create_file, initialize
 # temporary workaround for deployment test
 if not os.path.exists("data") or not os.path.exists("temp_files.json"):
         initialize()
 
+from PIL import Image
 import dash
 from dash import Input, Output, State, html, dcc
 import plotly.graph_objects as go
@@ -152,6 +155,9 @@ def toggle_band_dropdown_visibility(vis_type):
 # Callback for updating the plot
 @app.callback(
     Output("eeg-plot", "figure"),
+    Output("eeg-plot", "style"),
+    Output("topo-img", "src"),
+    Output("topo-img", "style"),
     [Input("vis-type", "value"),
      Input("channel-dropdown", "value"),
      Input("band-dropdown", "value"),
@@ -160,10 +166,15 @@ def toggle_band_dropdown_visibility(vis_type):
      prevent_initial_call=True
 )
 def update_plot(vis_type, selected_channels, selected_band, filter_frequency, custom_range):
+    """
+    Update plot or display image
+    If vis_type == "topo", then eeg-plot element isn't updated and vice versa 
+    """
+
     fig = go.Figure()
-    
+    img = go.Image()    
     if not selected_channels:
-        return fig  
+        return fig, {"display": "none"}, dash.no_update, dash.no_update  
 
     # Apply frequency filtering
     filtered_raw = mne_raw.copy()  
@@ -210,9 +221,11 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
 
     # Display topographic map
     elif vis_type == "topo":
-       mat_fig = create_top_map(spectrum)       
-       fig = mpl_to_plotly(mat_fig)
-    return fig
+        mat_fig = create_top_map(spectrum)       
+        img_path = create_file(mat_fig, ".png")
+        image = Image.open(img_path)
+        return dash.no_update, {"display": "none"}, image, {"display": "block"}
+    return fig, {"display": "block"}, dash.no_update, {"display": "none"} 
 
 @app.callback(
     Output("download-dataframe-csv", "data"),

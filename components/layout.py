@@ -108,8 +108,9 @@ def create_viz_data_layout(mne_raw, bands_names):
                     id="filter-selection-container",  
                 ),
                 
-                dcc.Graph(id="eeg-plot"),
-                
+                dcc.Graph(id="eeg-plot", style={"display": "none"}),
+                html.Img(id="topo-img", style={"display":"none"}),
+
                 # Download file
                 html.Button("Download Power Band", id="download-button"),
                 dcc.Download(id="download-dataframe-csv"),

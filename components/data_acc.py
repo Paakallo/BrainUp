@@ -105,6 +105,11 @@ def check_columns(import_data:pd.DataFrame):
         column_names_row = pd.DataFrame([df.columns.tolist()], columns=df.columns)
         df = pd.concat([column_names_row, df], ignore_index=True)
 
+    # hardcoded
+    channel_names = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz']
+    df.columns = channel_names
+
+    # uncomment to defy hardcoding
     df.columns = channels_info
     return df, channels_info
 
@@ -181,8 +186,6 @@ def set_mont(data_ch:list):
 def create_top_map(psd_data:mne.time_frequency.spectrum.Spectrum):
     topo_fig = psd_data.plot_topomap(ch_type='eeg', show=False)
     return topo_fig
-
-
 ###
 ### Specific Vizaulization Functions
 ###
