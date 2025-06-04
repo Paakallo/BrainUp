@@ -48,34 +48,59 @@ def cleanup_expired_files():
                 print("Temp_files removed")
             last_time = datetime.datetime.now() + datetime.timedelta(hours=24)
 
-def create_file(content, file_type):
+def create_user_folder():
+    u_id = str(uuid.uuid4())
+    user_folder = os.path.join(os.getcwd(), "data", u_id)
+    os.makedirs(user_folder, exist_ok=True)
+
+    with open("temp_files.json", "r") as f:
+        file_tracker = json.load(f)
+
+    # add user folder to temp_files.json
+    file_tracker[u_id] = {}
+    with open("temp_files.json", "w") as f:
+        json.dump(file_tracker, f, indent=4)
+    
+    return user_folder, u_id
+
+def create_file(content, file_name:str, u_id:str=None):
+    """
+    Create a file from the given content and save it.
+    If u_id is provided, the file is saved in the user's folder.
+    If u_id is None, the file is saved in the root of the data folder.
+    """
     pause_event.clear() # block data thread
-    # create temporary file stored in data
-    if file_type != ".png":
+    # save data inside user folder
+    if not file_name.endswith(".png"):
         data = content.encode("utf8").split(b";base64,")[1]
-        file_name = f"{uuid.uuid4()}.{file_type}"
-        save_path = os.path.join("data", file_name)
+        save_path = os.path.join("data", u_id, file_name)
         with open(save_path, "wb") as fp:
             fp.write(base64.decodebytes(data))
-    elif file_type == ".png":
-        file_name = f"{uuid.uuid4()}.{file_type}"
+        add_file_record(file_name, u_id)
+    # save figure as png
+    elif file_name.endswith(".png"):
         save_path = os.path.join("data", file_name)
         content.savefig(save_path, bbox_inches="tight")
+        add_file_record(file_name)
     else:
         raise TypeError
-
-    # read temp_files.json
-    with open("temp_files.json", "r") as f:
-        file = json.load(f)
-    # set cooldown for a temp file
-    file[file_name] = (datetime.datetime.now() + datetime.timedelta(hours=24)).isoformat()
-
-    # write json
-    print(f"Adding {file_name} to temp_files")
-    with open("temp_files.json", "w") as f:
-        json.dump(file, f)
-    
     sleep(1) # ensure record has been written
     pause_event.set() # resume thread
     return save_path
 
+def add_file_record(file_name:str, u_id:str=None):
+    """ Adds a file record to the temp_files.json file.
+    If u_id is None, the file is added to the root of temp_files.json.
+    If u_id is provided, the file is added to the user's folder in temp_files.json.
+    """
+    # add file record to temp_files.json
+    with open("temp_files.json", "r") as f:
+        file_tracker = json.load(f)
+
+    if u_id is None: 
+        file_tracker[file_name] = (datetime.datetime.now() + datetime.timedelta(hours=24)).isoformat()
+    else:
+        file_tracker[u_id][file_name] = (datetime.datetime.now() + datetime.timedelta(hours=24)).isoformat()
+    
+    with open("temp_files.json", "w") as f:
+        json.dump(file_tracker, f, indent=4)

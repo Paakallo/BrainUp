@@ -2,7 +2,7 @@ import base64
 import os
 import plotly.express as px
 from plotly.tools import mpl_to_plotly
-from components.helpers import create_file, initialize
+from components.helpers import create_file, create_user_folder, initialize
 # temporary workaround for deployment test
 if not os.path.exists("data") or not os.path.exists("temp_files.json"):
         initialize()
@@ -47,8 +47,10 @@ def upload_file(file, filename):
     # quit if nothing is uploaded
     if filename is None:
         return dash.no_update
-    
-    raw_data = get_file(file, filename)
+
+    u_path, u_id = create_user_folder()
+
+    raw_data = get_file(file, filename, u_id)
     print("File uploaded")
     
     mne_raw = pd2mne(raw_data)

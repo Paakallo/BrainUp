@@ -34,26 +34,21 @@ def construct_mne_object():
     mne_raw = mne.io.RawArray(data, info)
     return mne_raw
 
-def get_file(contents, file_name:str):
+def get_file(contents, file_name:str, u_id:str):
     # Returns pandas DataFrame and column names from decoded contents
     # contents are decoded from uploaded file
  
-    # decode contents
-    content_type, content_string = contents.split(',')
-    decoded = base64.b64decode(content_string)
-
     try:
         if file_name.endswith(".csv"):
-            raw_data = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+            raw_data = pd.read_csv(create_file(contents, file_name, u_id))
             raw_data = check_columns(raw_data)
         elif file_name.endswith(".xls"): # Test needed
-            raw_data = pd.read_excel(io.BytesIO(decoded))
+            raw_data = pd.read_excel(create_file(contents, file_name, u_id))
             raw_data = check_columns(raw_data)
         elif file_name.endswith(".edf"):
-            raw_data = mne.io.read_raw_edf(create_file(contents, "edf"), preload=True) # temporarily hardcoded
-            
+            raw_data = mne.io.read_raw_edf(create_file(contents, file_name, u_id), preload=True) # temporarily hardcoded
         elif file_name.endswith(".xdf"):
-            raw_data = read_raw_xdf(create_file(contents, "xdf"))
+            raw_data = read_raw_xdf(create_file(contents, file_name, u_id))
         else:
             raise TypeError
     except ValueError:
