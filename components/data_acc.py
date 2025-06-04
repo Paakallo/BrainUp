@@ -45,21 +45,21 @@ def get_file(contents, file_name:str):
     try:
         if file_name.endswith(".csv"):
             raw_data = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
-            raw_data, channels_info = check_columns(raw_data)
+            raw_data = check_columns(raw_data)
         elif file_name.endswith(".xls"): # Test needed
             raw_data = pd.read_excel(io.BytesIO(decoded))
-            raw_data, channels_info = check_columns(raw_data)
+            raw_data = check_columns(raw_data)
         elif file_name.endswith(".edf"):
             raw_data = mne.io.read_raw_edf(create_file(contents, "edf"), preload=True) # temporarily hardcoded
-            channels_info = raw_data.ch_names
+            
         elif file_name.endswith(".xdf"):
-            raw_data, channels_info = read_raw_xdf(create_file(contents, "xdf"))
+            raw_data = read_raw_xdf(create_file(contents, "xdf"))
         else:
             raise TypeError
     except ValueError:
         # print(f"Entered path: \"{file_path}\" is not a valid CSV file.")
         print("Error reading file. Please check the file format and content.")
-    return raw_data, channels_info
+    return raw_data
 
 def read_raw_xdf(fname:str):
     streams, header = pyxdf.load_xdf(fname)
@@ -85,7 +85,7 @@ def read_raw_xdf(fname:str):
     # create mne object
     info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types)
     raw_data = mne.io.RawArray(data, info)
-    return raw_data, ch_names
+    return raw_data
 
 def check_columns(import_data:pd.DataFrame):
     # filter data and choose appropriate column names
@@ -111,7 +111,7 @@ def check_columns(import_data:pd.DataFrame):
 
     # uncomment to defy hardcoding
     # df.columns = channels_info
-    return df, channels_info
+    return df
 
 def pd2mne(raw_data:pd.DataFrame):
     # Convert DataFrame to mne object
@@ -129,7 +129,7 @@ def calculate_psd(raw_data:pd.DataFrame):
         new_mon = set_mont(mne_raw.ch_names)
         mne_raw.set_montage(new_mon)
     psd = mne_raw.compute_psd()
-    return psd
+    return psd, mne_raw.info['ch_names']
 
 def get_power_band(spectrum:mne.time_frequency.Spectrum, band:list):
     fmin, fmax = band

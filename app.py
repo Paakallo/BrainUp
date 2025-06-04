@@ -48,11 +48,11 @@ def upload_file(file, filename):
     if filename is None:
         return dash.no_update
     
-    raw_data, channels_info = get_file(file, filename)
+    raw_data = get_file(file, filename)
     print("File uploaded")
     
     mne_raw = pd2mne(raw_data)
-    spectrum = calculate_psd(raw_data)
+    spectrum, channels_info = calculate_psd(raw_data)
     power_bands = extract_all_power_bands(spectrum)
     # Return reset values for all components
     return (
