@@ -25,20 +25,23 @@ def cleanup_expired_files():
     last_time = datetime.datetime.min # intialize last_time
     if_changed = False
     pause_event.wait() # instruct to wait until the flag is set
+
     while True:
         now = datetime.datetime.now()
         if now > last_time:
             with open("temp_files.json", "r") as f:
                 file_tracker = json.load(f)
             print("Checking temp_files...")
-            # check if file expires
-            for file, expiry in list(file_tracker.items()):
-                file_path = os.path.join("data", file)
-                if now > datetime.datetime.fromisoformat(expiry) and os.path.exists(file_path):
-                    print(f"Removing {file}")
-                    os.remove(file_path)
-                    del file_tracker[file]
-                    if_changed = True
+            # iterate through all users
+            for user in file_tracker.keys():
+                # iterate through all files of the user
+                for file, expiry in file_tracker[user].items():
+                    file_path = os.path.join("data", user, file)
+                    if now > datetime.datetime.fromisoformat(expiry) and os.path.exists(file_path):
+                        print(f"Removing {file}")
+                        os.remove(file_path)
+                        del file_tracker[user][file]
+                        if_changed = True
             # save changes
             if if_changed:
                 with open("temp_files.json", "w") as f:
@@ -46,7 +49,7 @@ def cleanup_expired_files():
                     if_changed = False
                 # check hour later
                 print("Temp_files removed")
-            last_time = datetime.datetime.now() + datetime.timedelta(hours=24)
+            last_time = datetime.datetime.now() + datetime.timedelta(days=7)  # check every week
 
 def create_user_folder(u_id:str=None):
     if u_id is not None:
