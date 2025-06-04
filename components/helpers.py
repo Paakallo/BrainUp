@@ -48,7 +48,9 @@ def cleanup_expired_files():
                 print("Temp_files removed")
             last_time = datetime.datetime.now() + datetime.timedelta(hours=24)
 
-def create_user_folder():
+def create_user_folder(u_id:str=None):
+    if u_id is not None:
+        return os.path.join(os.getcwd(), "data", u_id), u_id
     u_id = str(uuid.uuid4())
     user_folder = os.path.join(os.getcwd(), "data", u_id)
     os.makedirs(user_folder, exist_ok=True)

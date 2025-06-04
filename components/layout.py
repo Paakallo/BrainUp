@@ -23,7 +23,23 @@ def create_viz_data_layout(mne_raw, bands_names):
 
         html.Br(),
         html.Br(),
+
         
+        html.Div([
+            html.Button("Show UID", id="show_u_id"),
+            html.H4("User ID:", id="h4_id", style={"display": "none"}),
+            dcc.Textarea(
+                value='',  # Default value
+                id='user-id',
+                style={'flex': '1', "display": "none"},
+                readOnly=True  # Optional: prevent editing
+            )
+        ], style={
+        'display': 'flex',
+        'alignItems': 'center',
+        'gap': '10px',  # optional: for consistent spacing
+    }),
+
         # Main Visualization a data manipulation container
         # This container will be hidden until a file is uploaded
         html.Div(

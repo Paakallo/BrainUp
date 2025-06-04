@@ -25,6 +25,7 @@ server = app.server
 mne_raw = construct_mne_object()
 power_bands = []
 spectrum = None
+u_id = None  # User ID for file management
 
 app.layout = create_viz_data_layout(mne_raw, bands_names)
 
@@ -43,12 +44,12 @@ start_data_thread()
         prevent_initial_call=True
 )
 def upload_file(file, filename):
-    global mne_raw, spectrum, power_bands
+    global mne_raw, spectrum, power_bands, u_id
     # quit if nothing is uploaded
     if filename is None:
         return dash.no_update
 
-    u_path, u_id = create_user_folder()
+    u_path, u_id = create_user_folder(u_id)
 
     raw_data = get_file(file, filename, u_id)
     print("File uploaded")
@@ -68,7 +69,7 @@ def upload_file(file, filename):
 # Callback for updating the layout to show/hide the band dropdown
 @app.callback(
     Output("main-container", "style"),
-    Input("name-channels", "data"),
+    Input("name-channels", "data"), 
     prevent_initial_call=True
 )
 def toggle_band_dropdown_visibility(name_channels):
@@ -76,6 +77,23 @@ def toggle_band_dropdown_visibility(name_channels):
         return {"display": "none"}
     else:
         return {"display": "block"}
+
+@app.callback(
+    Output("user-id", "style"),
+    Output("h4_id", "style"),
+    Output("user-id", "value"),
+    Input("show_u_id", "n_clicks"),
+    prevent_initial_call=True
+)
+def show_uid(n_clicks):
+    global u_id
+    # show/hide user ID based on button clicks
+    if n_clicks %2 != 0:
+        if u_id is None:
+            return dash.no_update, dash.no_update, dash.no_update,    
+        return {"flex":"1", "display": "inline-block"}, {"display": "inline-block"}, u_id
+    else:
+        return {"display": "none"}, {"display": "none"}, dash.no_update
 
 # Callback for updating channel dropdown options
 @app.callback(
