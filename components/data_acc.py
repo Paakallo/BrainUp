@@ -1,5 +1,7 @@
 import base64
+import datetime
 import io
+import json
 import mne
 import numpy as np
 import pandas as pd
@@ -8,8 +10,11 @@ import os
 import uuid
 import pyxdf
 
+from components.helpers import create_file
+
 # Define constants
 data_folder = os.path.join(os.getcwd(), "data")
+
 channels_names_21 = [
     # Frontal Pole
     "Fp1", "Fp2",
@@ -73,28 +78,28 @@ def construct_mne_object():
 def get_file(contents, file_name: str):
     # Returns pandas DataFrame and column names from decoded contents
     # contents are decoded from uploaded file
+
+    # decode contents
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
 
     try:
         if file_name.endswith(".csv"):
             raw_data = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
-            raw_data, channels_info = check_columns(raw_data)
-        elif file_name.endswith(".xls"):  # Test needed
+            raw_data = check_columns(raw_data)
+        elif file_name.endswith(".xls"): # Test needed
             raw_data = pd.read_excel(io.BytesIO(decoded))
-            raw_data, channels_info = check_columns(raw_data)
+            raw_data = check_columns(raw_data)
         elif file_name.endswith(".edf"):
-            raw_data = mne.io.read_raw_edf(create_file(contents, "edf"), preload=True)
-            channels_info = raw_data.ch_names
+            raw_data = mne.io.read_raw_edf(create_file(contents, "edf"), preload=True) # temporarily hardcoded         
         elif file_name.endswith(".xdf"):
-            raw_data, channels_info = read_raw_xdf(create_file(contents, "xdf"))
+            raw_data = read_raw_xdf(create_file(contents, "xdf"))
         else:
-            raise TypeError("Unsupported file type.")
-    except Exception as e:
-        print(f"Error processing file: {e}")
-        raise ValueError("Error reading file. Please check the file format and content.")
-    
-    return raw_data, channels_info
+            raise TypeError
+    except ValueError:
+        # print(f"Entered path: \"{file_path}\" is not a valid CSV file.")
+        print("Error reading file. Please check the file format and content.")
+    return raw_data
 
 def read_raw_xdf(fname:str):
     streams, header = pyxdf.load_xdf(fname)
@@ -120,15 +125,7 @@ def read_raw_xdf(fname:str):
     # create mne object
     info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types)
     raw_data = mne.io.RawArray(data, info)
-    return raw_data, ch_names
-
-def create_file(content, file_type):
-    # create temporary file stored in data
-    data = content.encode("utf8").split(b";base64,")[1]
-    save_path = os.path.join("data", f"{uuid.uuid4()}.{file_type}")
-    with open(save_path, "wb") as fp:
-        fp.write(base64.decodebytes(data))
-    return save_path
+    return raw_data
 
 def check_columns(import_data:pd.DataFrame):
     # filter data and choose appropriate column names
@@ -148,8 +145,13 @@ def check_columns(import_data:pd.DataFrame):
         column_names_row = pd.DataFrame([df.columns.tolist()], columns=df.columns)
         df = pd.concat([column_names_row, df], ignore_index=True)
 
-    df.columns = channels_info
-    return df, channels_info
+    # hardcoded
+    channel_names = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz']
+    df.columns = channel_names
+
+    # uncomment to defy hardcoding
+    # df.columns = channels_info
+    return df
 
 def pd2mne(raw_data:pd.DataFrame):
     # Convert DataFrame to mne object
@@ -162,8 +164,12 @@ def pd2mne(raw_data:pd.DataFrame):
 def calculate_psd(raw_data:pd.DataFrame):
     # Create MNE Raw object and calculate PSD
     mne_raw = pd2mne(raw_data)
+    # set_montage if it doesn't have it 
+    if mne_raw.get_montage() is None:
+        new_mon = set_mont(mne_raw.ch_names)
+        mne_raw.set_montage(new_mon)
     psd = mne_raw.compute_psd()
-    return psd
+    return psd, mne_raw.info['ch_names']
 
 def get_power_band(spectrum:mne.time_frequency.Spectrum, band:list):
     fmin, fmax = band
@@ -196,7 +202,40 @@ def power_band2csv(power_bands:list, channels:list):
     df = pd.DataFrame(pw_dic)
     return df
 
+def set_mont(data_ch:list):
+    """
+    Change montage if mne_object doesn't have one
+    Standard montage is 10-20
+    """
+    # Form the 10-20 montage
+    mont1020 = mne.channels.make_standard_montage('standard_1020')
+    # Choose what chann`els you want to keep 
+    # Make sure that these channels exist e.g. T1 does not exist in the standard 10-20 EEG system!
+    kept_channels = data_ch 
+    ind = [i for (i, channel) in enumerate(mont1020.ch_names) if channel in kept_channels]
+    mont1020_new = mont1020.copy()
+    # Keep only the desired channels
+    mont1020_new.ch_names = [mont1020.ch_names[x] for x in ind]
+    kept_channel_info = [mont1020.dig[x+3] for x in ind]
+    # Keep the first three rows as they are the fiducial points information
+    mont1020_new.dig = mont1020.dig[0:3]+kept_channel_info
+    # mont1020.plot()
+    # mont1020_new.plot()
+    return mont1020_new
 
+def create_top_map(psd_data:mne.time_frequency.spectrum.Spectrum):
+    # topo_fig = psd_data.plot_topomap(ch_type='eeg', show=False, size=100, res=100)
+    topo_fig = psd_data.plot_topomap(ch_type='eeg', show=False)
+    #TODO: adjust to monitor resolution
+    screen_width_px = 1620 
+    screen_height_px = 1080 
+    dpi = 100  
+
+    width_in = screen_width_px / dpi
+    height_in = screen_height_px / dpi
+
+    topo_fig.set_size_inches(width_in, height_in)
+    return topo_fig
 ###
 ### Specific Vizaulization Functions
 ###

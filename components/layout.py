@@ -118,6 +118,7 @@ def create_main_visualization_container(mne_raw, bands_names):
                 options=[
                     {"label": "Raw Signal", "value": "raw"},
                     {"label": "PSD for Specific Band", "value": "specific_band"},
+                    {"label": "Topo", "value":"topo"},
                 ],
                 value="raw",
                 inline=True,
@@ -185,6 +186,8 @@ def create_main_visualization_container(mne_raw, bands_names):
             dcc.Graph(id="eeg-plot"),
             html.Button("Download Power Band", id="download-button"),
             dcc.Download(id="download-dataframe-csv"),
+          
+            html.Img(id="topo-img", style={"display": "none"}),
         ],
         id="main-container",
         style={"display": "none"},

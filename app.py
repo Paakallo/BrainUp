@@ -1,4 +1,11 @@
+import base64
 import os
+
+import plotly.express as px
+from plotly.tools import mpl_to_plotly
+from components.helpers import create_file, initialize
+# temporary workaround for deployment test
+
 import mne
 import numpy as np
 from components.helpers import prepare_dataset
@@ -9,8 +16,18 @@ from components.data_acc import calculate_psd, construct_mne_object, extract_all
 from components.helpers import filter_data
 from components.layout import create_viz_data_layout
 
-if not os.path.exists("data"):
-        prepare_dataset()
+if not os.path.exists("data") or not os.path.exists("temp_files.json"):
+        initialize()
+
+from PIL import Image
+import dash
+from dash import Input, Output, State, html, dcc
+import plotly.graph_objects as go
+from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band, power_band2csv, create_top_map
+from components.helpers import filter_data, cleanup_expired_files, start_data_thread
+from components.layout import create_viz_data_layout
+import threading
+
 
 app = dash.Dash(__name__)
 app.title = "BrainUp"  
@@ -21,16 +38,23 @@ server = app.server
 # Define global constants (in my opinion temporary solution)
 mne_raw = construct_mne_object()
 power_bands = []
+
 number_of_channels = 0
 channels_names = channels_names_21 # Default channel names for 21 electrodes
 assigned_channels_names = []  
+
+spectrum = None
+
 
 app.layout = html.Div([
     create_viz_data_layout(mne_raw, bands_names, number_of_channels),
     dcc.Store(id="channels-names-store", data=channels_names),  
 ])
 
-# Callback for uploading the file
+# Clean up your room!
+start_data_thread()
+
+# Callback for uploading file and nuking the whole page
 @app.callback(
     Output("name-channels", "data"),
     Output("number-of-channels", "data"),
@@ -46,22 +70,23 @@ app.layout = html.Div([
     State("channels-names-store", "data"), 
     prevent_initial_call=True
 )
-def upload_file(file, filename, channels_names):
-    global mne_raw, power_bands
+def upload_file(file, filename):
+    global mne_raw, spectrum, power_bands
     
     channels_names = channels_names_21
     
+    # quit if nothing is uploaded
     if filename is None:
-        print("No file uploaded")
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
-
-    raw_data, channels_info = get_file(file, filename)
-    print(f"File uploaded: {filename}")
+        return dash.no_update
+    
+    raw_data = get_file(file, filename)
+    print("File uploaded")
     
     mne_raw = pd2mne(raw_data)
-    power_bands = extract_all_power_bands(calculate_psd(raw_data))
+    spectrum, channels_info = calculate_psd(raw_data)
+    power_bands = extract_all_power_bands(spectrum)
     number_of_channels = len(channels_info)
-    
+    # Return reset values for all components
     return (
         channels_names,
         number_of_channels,
@@ -232,6 +257,9 @@ def toggle_band_dropdown_visibility(vis_type):
 # Callback for updating the plot
 @app.callback(
     Output("eeg-plot", "figure"),
+    Output("eeg-plot", "style"),
+    Output("topo-img", "src"),
+    Output("topo-img", "style"),
     [Input("vis-type", "value"),
      Input("channel-dropdown", "value"),
      Input("band-dropdown", "value"),
@@ -240,12 +268,17 @@ def toggle_band_dropdown_visibility(vis_type):
      prevent_initial_call=True
 )
 def update_plot(vis_type, selected_channels, selected_band, filter_frequency, custom_range):
+    """
+    Update plot or display image
+    If vis_type == "topo", then eeg-plot element isn't updated and vice versa 
+    """
+
     fig = go.Figure()
-    
+    img = go.Image()    
     # Prevent error if selected_channels is empty or None
     if not selected_channels:
         print("Selected channels are empty or None.")
-        return fig
+        return fig, {"display": "none"}, dash.no_update, dash.no_update
 
     # Ensure selected_channels are present in mne_raw.info["ch_names"]
     valid_channels = [ch for ch in selected_channels if ch in mne_raw.info["ch_names"]]
@@ -296,8 +329,14 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
             xaxis=dict(autorange=True),  
             yaxis=dict(range=[-100, 100]) 
         )
-    
-    return fig
+
+    # Display topographic map
+    elif vis_type == "topo":
+        mat_fig = create_top_map(spectrum)       
+        img_path = create_file(mat_fig, ".png")
+        image = Image.open(img_path)
+        return dash.no_update, {"display": "none"}, image, {"display": "block"}
+    return fig, {"display": "block"}, dash.no_update, {"display": "none"} 
 
 @app.callback(
     Output("band-dropdown", "value", allow_duplicate=True),
