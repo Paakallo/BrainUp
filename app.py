@@ -1,16 +1,17 @@
 import os
+from PIL import Image
 import mne
 import numpy as np
-from components.helpers import prepare_dataset
+from components.helpers import create_file, initialize
 import dash
 from dash import Input, Output, State, html, dcc
 import plotly.graph_objects as go
-from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band, power_band2csv, channels_names_21, channels_names_68
+from components.data_acc import calculate_psd, construct_mne_object, create_top_map, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band, power_band2csv, channels_names_21, channels_names_68
 from components.helpers import filter_data
 from components.layout import create_viz_data_layout
 
-if not os.path.exists("data"):
-        prepare_dataset()
+if not os.path.exists("data") or not os.path.exists("temp_files.json"):
+    initialize()
 
 app = dash.Dash(__name__)
 app.title = "BrainUp"  
@@ -25,9 +26,11 @@ number_of_channels = 0
 channels_names = channels_names_21 # Default channel names for 21 electrodes
 assigned_channels_names = []  
 
+spectrum = None
+
 app.layout = html.Div([
     create_viz_data_layout(mne_raw, bands_names, number_of_channels),
-    dcc.Store(id="channels-names-store", data=channels_names),  
+    # dcc.Store(id="channels-names-store", data=channels_names),  
 ])
 
 # Callback for uploading the file
@@ -47,7 +50,7 @@ app.layout = html.Div([
     prevent_initial_call=True
 )
 def upload_file(file, filename, channels_names):
-    global mne_raw, power_bands
+    global mne_raw, spectrum, power_bands
     
     channels_names = channels_names_21
     
@@ -55,12 +58,14 @@ def upload_file(file, filename, channels_names):
         print("No file uploaded")
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
-    raw_data, channels_info = get_file(file, filename)
+    raw_data = get_file(file, filename)
     print(f"File uploaded: {filename}")
     
     mne_raw = pd2mne(raw_data)
-    power_bands = extract_all_power_bands(calculate_psd(raw_data))
-    number_of_channels = len(channels_info)
+    spectrum = calculate_psd(mne_raw)
+    power_bands = extract_all_power_bands(spectrum)
+
+    number_of_channels = len(mne_raw.info["ch_names"])
     
     return (
         channels_names,
@@ -232,6 +237,9 @@ def toggle_band_dropdown_visibility(vis_type):
 # Callback for updating the plot
 @app.callback(
     Output("eeg-plot", "figure"),
+    Output("eeg-plot", "style"),
+    Output("topo-img", "src"),
+    Output("topo-img", "style"),
     [Input("vis-type", "value"),
      Input("channel-dropdown", "value"),
      Input("band-dropdown", "value"),
@@ -245,12 +253,12 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
     # Prevent error if selected_channels is empty or None
     if not selected_channels:
         print("Selected channels are empty or None.")
-        return fig
+        return fig, {"display": "none"}, dash.no_update, dash.no_update
 
     # Ensure selected_channels are present in mne_raw.info["ch_names"]
     valid_channels = [ch for ch in selected_channels if ch in mne_raw.info["ch_names"]]
     if not valid_channels:
-        return fig
+        return fig, {"display": "none"}, dash.no_update, dash.no_update
 
     # Apply frequency filtering
     filtered_raw = mne_raw.copy()  
@@ -296,8 +304,13 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
             xaxis=dict(autorange=True),  
             yaxis=dict(range=[-100, 100]) 
         )
-    
-    return fig
+    # Display topographic map
+    elif vis_type == "topo":
+        mat_fig = create_top_map(mne_raw, spectrum)       
+        img_path = create_file(mat_fig, ".png")
+        image = Image.open(img_path)
+        return dash.no_update, {"display": "none"}, image, {"display": "block"}
+    return fig, {"display": "block"}, dash.no_update, {"display": "none"} 
 
 @app.callback(
     Output("band-dropdown", "value", allow_duplicate=True),

@@ -8,6 +8,10 @@ import os
 import uuid
 import pyxdf
 
+from components.helpers import create_file
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend for thread-safe plotting
+
 # Define constants
 data_folder = os.path.join(os.getcwd(), "data")
 channels_names_21 = [
@@ -23,13 +27,11 @@ channels_names_21 = [
     "P3", "P4", "Pz",
     # Occipital
     "O1", "O2",
-    # Reference
-    "A1", "A2"
 ]
 
 channels_names_68 = [
     # Frontal Pole
-    "FpZ", "Fp1", "Fp2", "AF7", "AF3", "AFZ", "AF4", "AF8", "F9", "F10",
+    "Fp1", "Fp2", "AF7", "AF3", "AF4", "AF8", "F9", "F10",
     # Frontal
     "Fz", "F7", "F3", "F1", "F2", "F4", "F8", "F5", "F6",
     # Frontotemporal
@@ -46,8 +48,6 @@ channels_names_68 = [
     "Pz", "P3", "P1", "P2", "P4", "P5", "P6", "P7", "P8", "P9", "P10",
     # Occipital
     "OZ", "O1", "O2", "PO7", "PO3", "POZ", "PO4", "PO8",
-    # Other
-    "NZ", "IZ", "A1", "A2"
 ] # 68 channels
 
 delta = [0.5,4] # Delta:   0.5 – 4   Hz   → Deep sleep, unconscious states
@@ -94,7 +94,7 @@ def get_file(contents, file_name: str):
         print(f"Error processing file: {e}")
         raise ValueError("Error reading file. Please check the file format and content.")
     
-    return raw_data, channels_info
+    return raw_data
 
 def read_raw_xdf(fname:str):
     streams, header = pyxdf.load_xdf(fname)
@@ -122,13 +122,13 @@ def read_raw_xdf(fname:str):
     raw_data = mne.io.RawArray(data, info)
     return raw_data, ch_names
 
-def create_file(content, file_type):
-    # create temporary file stored in data
-    data = content.encode("utf8").split(b";base64,")[1]
-    save_path = os.path.join("data", f"{uuid.uuid4()}.{file_type}")
-    with open(save_path, "wb") as fp:
-        fp.write(base64.decodebytes(data))
-    return save_path
+# def create_file(content, file_type):
+#     # create temporary file stored in data
+#     data = content.encode("utf8").split(b";base64,")[1]
+#     save_path = os.path.join("data", f"{uuid.uuid4()}.{file_type}")
+#     with open(save_path, "wb") as fp:
+#         fp.write(base64.decodebytes(data))
+#     return save_path
 
 def check_columns(import_data:pd.DataFrame):
     # filter data and choose appropriate column names
@@ -153,15 +153,18 @@ def check_columns(import_data:pd.DataFrame):
 
 def pd2mne(raw_data:pd.DataFrame):
     # Convert DataFrame to mne object
+    print(type(raw_data))
     if not isinstance(raw_data, pd.DataFrame):
         return raw_data
+    print(type(raw_data))
     info = mne.create_info(list(raw_data.columns), 256, ch_types="eeg")
     mne_raw = mne.io.RawArray(raw_data.T, info)
+    print(type(mne_raw))
     return mne_raw
 
-def calculate_psd(raw_data:pd.DataFrame):
-    # Create MNE Raw object and calculate PSD
-    mne_raw = pd2mne(raw_data)
+def calculate_psd(mne_raw:mne.io.RawArray):
+    """ Calculate Power Spectral Density (PSD) for the given MNE Raw object.
+    """
     psd = mne_raw.compute_psd()
     return psd
 
@@ -196,6 +199,50 @@ def power_band2csv(power_bands:list, channels:list):
     df = pd.DataFrame(pw_dic)
     return df
 
+def set_mont(data_ch:list):
+    """
+    Change montage if mne_object doesn't have one
+    Standard montage is 10-20
+    """
+    # Form the 10-20 montage
+    mont1020 = mne.channels.make_standard_montage('standard_1020')
+    # Choose what chann`els you want to keep 
+    # Make sure that these channels exist e.g. T1 does not exist in the standard 10-20 EEG system!
+    kept_channels = data_ch 
+    ind = [i for (i, channel) in enumerate(mont1020.ch_names) if channel in kept_channels]
+    mont1020_new = mont1020.copy()
+    # Keep only the desired channels
+    mont1020_new.ch_names = [mont1020.ch_names[x] for x in ind]
+    kept_channel_info = [mont1020.dig[x+3] for x in ind]
+    # Keep the first three rows as they are the fiducial points information
+    mont1020_new.dig = mont1020.dig[0:3]+kept_channel_info
+    # mont1020.plot()
+    # mont1020_new.plot()
+    return mont1020_new
+
+def create_top_map(mne_raw, psd_data:mne.time_frequency.spectrum.Spectrum):
+    
+    print("setting montage")
+    if mne_raw.get_montage() is None:
+        new_mon = set_mont(mne_raw.ch_names)
+        mne_raw.set_montage(new_mon)
+    
+    # temporary fix for montage
+    print("Calculating PSD")
+    psd_data = calculate_psd(mne_raw)
+    print("Plotting topomap")
+    topo_fig = psd_data.plot_topomap(ch_type='eeg', show=False)
+    #TODO: adjust to monitor resolution
+    screen_width_px = 1620 
+    screen_height_px = 1080 
+    dpi = 100  
+
+    width_in = screen_width_px / dpi
+    height_in = screen_height_px / dpi
+
+    topo_fig.set_size_inches(width_in, height_in)
+    print("Topomap created")
+    return topo_fig
 
 ###
 ### Specific Vizaulization Functions
