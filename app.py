@@ -4,7 +4,7 @@ import mne
 import numpy as np
 from components.helpers import create_file, initialize
 import dash
-from dash import Input, Output, State, html, dcc
+from dash import Input, Output, State, html, dcc, ctx
 import plotly.graph_objects as go
 from components.data_acc import calculate_psd, construct_mne_object, create_top_map, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band, power_band2csv, channels_names_21, channels_names_68
 from components.helpers import filter_data
@@ -169,13 +169,15 @@ def update_channel_dropdown_options(vis_type, name_channels, current_channels_na
 def reset_channel_dropdown_value(current_channels_names):
     return []  # or None if you want no selection
 
-# Callback for updating the layout to allow multiple channel selection
 @app.callback(
     Output("channel-dropdown", "multi"),
     Input("vis-type", "value"),
     prevent_initial_call=True
 )
 def toggle_channel_multi_select(vis_type):
+    """
+    Callback for updating the layout to allow multiple channel selection
+    """
     return True  
 
 # Callback to handle "All Channels" and "Clear Selected Channels" buttons
@@ -204,9 +206,12 @@ def handle_channel_buttons(select_all_clicks, clear_clicks):
     Input("vis-type", "value")
 )
 def toggle_filter_selection_container(vis_type):
-    if vis_type == "specific_band":
-        return {"display": "none"}  
-    return {"display": "block"}  
+    """
+    Display filter menu only for raw data
+    """
+    if vis_type == "raw":
+        return {"display": "block"}  
+    return {"display": "none"}  
 
 # Callback for showing/hiding the custom frequency slider
 @app.callback(
@@ -216,7 +221,11 @@ def toggle_filter_selection_container(vis_type):
      prevent_initial_call=True
 )
 def toggle_custom_frequency_slider(filter_frequency, vis_type):
-    if vis_type == "specific_band":
+    """
+    Display frequency menu for raw data
+    Hide otherwise
+    """
+    if vis_type == "specific_band" or vis_type == "topo":
         return {"display": "none"}  
     elif filter_frequency == "custom":
         return {"display": "block"}  
@@ -249,7 +258,9 @@ def toggle_band_dropdown_visibility(vis_type):
 )
 def update_plot(vis_type, selected_channels, selected_band, filter_frequency, custom_range):
     fig = go.Figure()
-    
+
+    triggered_id = ctx.triggered_id
+
     # Prevent error if selected_channels is empty or None
     if not selected_channels:
         print("Selected channels are empty or None.")
@@ -306,10 +317,11 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
         )
     # Display topographic map
     elif vis_type == "topo":
-        mat_fig = create_top_map(mne_raw, spectrum)       
-        img_path = create_file(mat_fig, ".png")
-        image = Image.open(img_path)
-        return dash.no_update, {"display": "none"}, image, {"display": "block"}
+        # if triggered_id == "vis_type":
+            mat_fig = create_top_map(mne_raw, spectrum)       
+            img_path = create_file(mat_fig, ".png")
+            image = Image.open(img_path)
+            return dash.no_update, {"display": "none"}, image, {"display": "block"}
     return fig, {"display": "block"}, dash.no_update, {"display": "none"} 
 
 @app.callback(
