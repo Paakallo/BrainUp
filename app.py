@@ -26,13 +26,14 @@ from components.helpers import filter_data, cleanup_expired_files, start_data_th
 from components.layout import create_viz_data_layout
 import threading
 
-# manages saved data
-start_data_thread()
 
 app = dash.Dash(__name__)
 app.title = "BrainUp"  
 app._favicon = "logo.png"
 server = app.server
+
+# manages saved data
+start_data_thread()
 
 
 # Define global constants (in my opinion temporary solution)
@@ -446,4 +447,8 @@ def confirm_channel_assignments(n_clicks, channel_assignment_rows):
     return assigned_channels_names, {"display": "none"}, {"display": "block"}
 
 if __name__ == "__main__":
+    import sys
+    # if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
+    #     print("Run data thread")
+    #     start_data_thread()
     app.run(debug=True)
