@@ -14,6 +14,47 @@ from components.helpers import create_file
 
 # Define constants
 data_folder = os.path.join(os.getcwd(), "data")
+
+channels_names_21 = [
+    # Frontal Pole
+    "Fp1", "Fp2",
+    # Frontal
+    "F3", "F4", "F7", "F8", "Fz",
+    # Temporal
+    "T3", "T4", "T5", "T6",
+    # Central
+    "C3", "C4", "Cz",
+    # Parietal
+    "P3", "P4", "Pz",
+    # Occipital
+    "O1", "O2",
+    # Reference
+    "A1", "A2"
+]
+
+channels_names_68 = [
+    # Frontal Pole
+    "FpZ", "Fp1", "Fp2", "AF7", "AF3", "AFZ", "AF4", "AF8", "F9", "F10",
+    # Frontal
+    "Fz", "F7", "F3", "F1", "F2", "F4", "F8", "F5", "F6",
+    # Frontotemporal
+    "FT9", "FT7", "FT8", "FT10",
+    # Central
+    "Cz", "C3", "C1", "C2", "C4", "C5", "C6",
+    # Temporal
+    "T9", "T7", "T8", "T10",
+    # Central-Parietal
+    "CPZ", "CP1", "CP3", "CP5", "CP2", "CP4", "CP6",
+    # Temporal-Parietal
+    "TP9", "TP7", "TP8", "TP10",
+    # Parietal
+    "Pz", "P3", "P1", "P2", "P4", "P5", "P6", "P7", "P8", "P9", "P10",
+    # Occipital
+    "OZ", "O1", "O2", "PO7", "PO3", "POZ", "PO4", "PO8",
+    # Other
+    "NZ", "IZ", "A1", "A2"
+] # 68 channels
+
 delta = [0.5,4] # Delta:   0.5 – 4   Hz   → Deep sleep, unconscious states
 theta = [4,8] # Theta:   4   – 8   Hz   → Drowsiness, meditation, creativity
 alpha = [8,13] # Alpha:   8   – 13  Hz   → Relaxed wakefulness, calm focus
@@ -34,7 +75,7 @@ def construct_mne_object():
     mne_raw = mne.io.RawArray(data, info)
     return mne_raw
 
-def get_file(contents, file_name:str):
+def get_file(contents, file_name: str):
     # Returns pandas DataFrame and column names from decoded contents
     # contents are decoded from uploaded file
  
@@ -51,7 +92,6 @@ def get_file(contents, file_name:str):
             raw_data = check_columns(raw_data)
         elif file_name.endswith(".edf"):
             raw_data = mne.io.read_raw_edf(create_file(contents, "edf"), preload=True) # temporarily hardcoded
-            
         elif file_name.endswith(".xdf"):
             raw_data = read_raw_xdf(create_file(contents, "xdf"))
         else:
@@ -207,7 +247,6 @@ def plot_raw_channels(raw, channel_names):
         raise ValueError(f"None of the selected channels were found in the data.")
     
     data, times = raw[channel_indices]
-    print(data)
     return times, data
 
 # Function to plot PSD for a channel across all bands

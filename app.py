@@ -3,6 +3,16 @@ import os
 import plotly.express as px
 from plotly.tools import mpl_to_plotly
 from components.helpers import create_file, initialize
+
+import mne
+import numpy as np
+import dash
+from dash import Input, Output, State, html, dcc
+import plotly.graph_objects as go
+from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band, power_band2csv, channels_names_21, channels_names_68
+from components.helpers import filter_data
+from components.layout import create_viz_data_layout
+
 # temporary workaround for deployment test
 if not os.path.exists("data") or not os.path.exists("temp_files.json"):
         initialize()
@@ -21,72 +31,161 @@ app.title = "BrainUp"
 app._favicon = "logo.png"
 server = app.server
 
+
 # Define global constants (in my opinion temporary solution)
 mne_raw = construct_mne_object()
 power_bands = []
+
+number_of_channels = 0
+channels_names = channels_names_21 # Default channel names for 21 electrodes
+assigned_channels_names = []  
+
 spectrum = None
 
-app.layout = create_viz_data_layout(mne_raw, bands_names)
 
-# threading.Thread(target=cleanup_expired_files, daemon=True).start()
+app.layout = html.Div([
+    create_viz_data_layout(mne_raw, bands_names, number_of_channels),
+    dcc.Store(id="channels-names-store", data=channels_names),  
+])
+
+# manages saved data
 start_data_thread()
 
 # Callback for uploading file and nuking the whole page
 @app.callback(
-        Output("name-channels", "data"),
-        Output("vis-type", "value"),
-        Output("band-dropdown", "value"),
-        Output("filter-frequency", "value"),
-        Output("custom-frequency-slider", "value"),
-        Input("upload-file-zone", "contents"),
-        Input("upload-file-zone", "filename"),
-        prevent_initial_call=True
+    Output("name-channels", "data"),
+    Output("number-of-channels", "data"),
+    Output("vis-type", "value"),
+    Output("band-dropdown", "value"),
+    Output("filter-frequency", "value"),
+    Output("custom-frequency-slider", "value"),
+    Output("main-container", "style", allow_duplicate=True),
+    Output("channel-assignment-container", "style", allow_duplicate=True),
+    Output("assign-channels-confirm-button", "style", allow_duplicate=True),
+    Input("upload-file-zone", "contents"),
+    Input("upload-file-zone", "filename"),
+    State("channels-names-store", "data"), 
+    prevent_initial_call=True
 )
-def upload_file(file, filename):
+def upload_file(file, filename, channels_names):
     global mne_raw, spectrum, power_bands
+    
+    channels_names = channels_names_21
+    
     # quit if nothing is uploaded
     if filename is None:
+        print("No file uploaded")
         return dash.no_update
     
     raw_data = get_file(file, filename)
-    print("File uploaded")
+    print(f"File uploaded: {filename}")
     
     mne_raw = pd2mne(raw_data)
     spectrum, channels_info = calculate_psd(raw_data)
     power_bands = extract_all_power_bands(spectrum)
+    number_of_channels = len(channels_info)
     # Return reset values for all components
     return (
-        channels_info,
-        "raw",  # Default visualization type
-        None,  # No band selected
-        None,  # No filter selected
-        None,  # No custom frequency
+        channels_names,
+        number_of_channels,
+        "raw",
+        None,
+        None,
+        None,
+        {"display": "None"},
+        {"display": "None"},  
+        {"display": "None"}  
     )
 
-# Callback for updating the layout to show/hide the band dropdown
+# Callback for updating the layout to show channel name asigment container when file is uploaded
 @app.callback(
-    Output("main-container", "style"),
-    Input("name-channels", "data"),
+    Output("channels-name-assignment-container", "style"),
+    Input("number-of-channels", "data")
+)
+def channel_assigment_visibility(number_of_channels):
+    if number_of_channels > 0:
+        return {"display": "block"}
+    else:
+        return {"display": "none"}
+
+# Callback to handle electrode view navigation
+@app.callback(
+    Output("electrode-view-store", "data"),
+    Output("electrode-image", "src"),
+    Output("channel-assignment-container", "style", allow_duplicate=True),
+    Output("channels-names-store", "data", allow_duplicate=True),
+    Output("assign-channels-confirm-button", "style", allow_duplicate=True),
+    Output("name-channels", "data", allow_duplicate=True),
+    Input("prev-electrode-view", "n_clicks"),
+    Input("next-electrode-view", "n_clicks"),
+    State("electrode-view-store", "data"),
+    State("channels-names-store", "data"),
     prevent_initial_call=True
 )
-def toggle_band_dropdown_visibility(name_channels):
-    if name_channels == None:
-        return {"display": "none"}
-    else:
-        return {"display": "block"}
+def update_electrode_view(prev_clicks, next_clicks, current_view, channels_names):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+    button_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    
+    # Get current view type or default to 21_electrodes
+    view_type = current_view.get("type", "21_electrodes") if current_view else "21_electrodes"
+    
+    # Toggle between views
+    if button_id == "prev-electrode-view" or button_id == "next-electrode-view":
+        if view_type == "21_electrodes":
+            new_view = "68_electrodes"
+            channels_names = channels_names_68  # Update channel names for 68 electrodes
+        else:
+            new_view = "21_electrodes"
+            channels_names = channels_names_21
+            
+        # Return the new state and image source
+        return {"type": new_view}, f"assets/{new_view}.svg", {"display": "none"}, channels_names, {"display": "none"}, channels_names
+    
+    return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+# Callback for updating channel assignment rows based on the number of channels and channel names
+@app.callback(
+    Output("channel-assignment-container", "children", allow_duplicate=True),
+    Input("number-of-channels", "data"),
+    Input("channels-names-store", "data"),  # Add this input
+    prevent_initial_call=True,
+)
+def update_channel_assigment_children(callback_number_of_channels, current_channels_names):
+    global number_of_channels, channels_names
+    number_of_channels = callback_number_of_channels
+    channels_names = current_channels_names  
+    print(f"Updating channel assignment for {number_of_channels} channels. Names: {'21' if channels_names == channels_names_21 else '68'}")
+    from components.layout import create_channel_assignment_row
+    return [
+        create_channel_assignment_row(i, channels_names) for i in range(number_of_channels)
+    ]
 
 # Callback for updating channel dropdown options
 @app.callback(
     Output("channel-dropdown", "options"),
     Input("vis-type", "value"),
     Input("name-channels", "data"),
+    Input("channels-names-store", "data"),  
     prevent_initial_call=True
 )
-def update_channel_dropdown_options(vis_type, name_channels):
+def update_channel_dropdown_options(vis_type, name_channels, current_channels_names):
     # prevent updating channels without uploaded file
     if not name_channels:
         return dash.no_update
-    return [{"label": ch, "value": ch} for ch in name_channels]
+    # Use the current channel names from the store
+    return [{"label": ch, "value": ch} for ch in current_channels_names]
+
+# Reset channel-dropdown value when channel names change
+@app.callback(
+    Output("channel-dropdown", "value", allow_duplicate=True),
+    Input("channels-names-store", "data"),
+    prevent_initial_call=True
+)
+def reset_channel_dropdown_value(current_channels_names):
+    return []  # or None if you want no selection
 
 # Callback for updating the layout to allow multiple channel selection
 @app.callback(
@@ -111,6 +210,7 @@ def handle_channel_buttons(select_all_clicks, clear_clicks):
 
     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
     if triggered_id == "select-all-channels":
+        print("mne_raw.info[\"ch_names\"]:", mne_raw.info["ch_names"])
         return [ch for ch in mne_raw.info["ch_names"]]  
     elif triggered_id == "clear-channels":
         return [] 
@@ -172,9 +272,17 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
     """
 
     fig = go.Figure()
-    img = go.Image()    
+    img = go.Image()
+    # Prevent error if selected_channels is empty or None
     if not selected_channels:
+        print("Selected channels are empty or None.")
         return fig, {"display": "none"}, dash.no_update, dash.no_update  
+      
+    # Ensure selected_channels are present in mne_raw.info["ch_names"]
+    valid_channels = [ch for ch in selected_channels if ch in mne_raw.info["ch_names"]]
+    if not valid_channels:
+        return fig, {"display": "none"}, dash.no_update, dash.no_update  
+
 
     # Apply frequency filtering
     filtered_raw = mne_raw.copy()  
@@ -183,9 +291,11 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
     elif filter_frequency == "high":
         filtered_raw = filter_data(filtered_raw, low_freq=25)
     elif filter_frequency == "custom":
-        if custom_range is None or len(custom_range) != 2:
-            custom_range = [5, 10]
-        filtered_raw = filter_data(filtered_raw, low_freq=custom_range[0], high_freq=custom_range[1])
+        if custom_range is not None:
+            filtered_raw = filter_data(filtered_raw, low_freq=custom_range[0], high_freq=custom_range[1])
+        else:
+            # Use default values or skip filtering
+            filtered_raw = filter_data(filtered_raw)
 
     # PSD visualization for specific band
     if vis_type == "specific_band":
@@ -193,7 +303,7 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
             return dash.no_update
         band_data = plot_power_band(power_bands, selected_band, mne_raw, "all")
         for ch_name, freqs, power in band_data:
-            if ch_name in selected_channels:
+            if ch_name in valid_channels:
                 fig.add_trace(go.Scatter(x=freqs, y=power, mode="lines", name=ch_name))
         for i, name in enumerate(bands_names):
             if selected_band.lower() == name.lower():
@@ -208,8 +318,8 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
         
     # Raw signal visualization for selected channels  
     elif vis_type == "raw":
-        times, data = plot_raw_channels(filtered_raw, selected_channels)
-        for i, channel_name in enumerate(selected_channels):
+        times, data = plot_raw_channels(filtered_raw, valid_channels)
+        for i, channel_name in enumerate(valid_channels):
             fig.add_trace(go.Scatter(x=times, y=data[i], mode="lines", name=channel_name))
         fig.update_layout(
             title="Raw Signal - Selected Channels", 
@@ -228,6 +338,16 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
     return fig, {"display": "block"}, dash.no_update, {"display": "none"} 
 
 @app.callback(
+    Output("band-dropdown", "value", allow_duplicate=True),
+    [Input("vis-type", "value"), Input("upload-file-zone", "contents")],
+    prevent_initial_call=True
+)
+def reset_band_dropdown(vis_type, file_contents):
+    if vis_type == "specific_band" or file_contents is not None:
+        return 'Delta'
+    return dash.no_update
+
+@app.callback(
     Output("download-dataframe-csv", "data"),
     Input("download-button", "n_clicks"),
     State("name-channels", "data"),
@@ -237,6 +357,91 @@ def download_power_band(n_clicks, name_channels):
     df = power_band2csv(power_bands, name_channels)
     return dcc.send_data_frame(df.to_csv, "power_bands.csv")
 
+# Callback for updating the layout to show/hide manually assigned channels
+@app.callback(
+    Output("channel-assignment-container", "style"),
+    Output("channel-dropdown", "value", allow_duplicate=True),
+    Output("channel-assignment-container", "children", allow_duplicate=True),
+    Output("assign-channels-confirm-button", "style", allow_duplicate=True),
+    Input("assign-channels-manually-button", "n_clicks"),
+    State("number-of-channels", "data"),
+    State("channels-names-store", "data"),
+    prevent_initial_call=True
+)
+def channel_assigment_rows_visibility(n_clicks, number_of_channels, channels_names):
+    if n_clicks is not None and n_clicks > 0:
+        from components.layout import create_channel_assignment_row
+        children = []
+        preselected = []
+        for i in range(number_of_channels):
+            value = None  # Make every selection empty
+            # Add a unique key to force re-creation
+            children.append(
+                create_channel_assignment_row(i, channels_names, value)
+            )
+        # Return a new list of children to force Dash to re-render
+        return {"display": "block"}, preselected, children, {"display": "block"}
+    # When not active, clear children to force re-render next time
+    return {"display": "none"}, [], [], {"display": "none"}
+
+# Callback for "Assign Automatically" button
+@app.callback(
+    Output("channel-assignment-container", "style", allow_duplicate=True),
+    Output("channel-dropdown", "value", allow_duplicate=True),
+    Output("channel-assignment-container", "children", allow_duplicate=True),
+    Output("assign-channels-confirm-button", "style", allow_duplicate=True),
+    Input("assign-channels-automaticlly-button", "n_clicks"),
+    State("number-of-channels", "data"),
+    State("name-channels", "data"),
+    prevent_initial_call=True
+)
+def channel_assigment_auto_rows_visibility(n_clicks, number_of_channels, channels_names):
+    if n_clicks is not None and n_clicks > 0:
+        from components.layout import create_channel_assignment_row
+        children = []
+        preselected = []
+        for i in range(number_of_channels):
+            value = channels_names[i] if i < len(channels_names) else None
+            preselected.append(value)
+            print(value)
+            print(preselected)
+            children.append(create_channel_assignment_row(i, channels_names, value))
+        return {"display": "block"}, preselected, children, {"display": "block"}
+    return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+# Callback for confirming channel assignments
+@app.callback(
+    Output("channels-names-store", "data"),
+    Output("channels-name-assignment-container", "style", allow_duplicate=True),
+    Output("main-container", "style"),
+    Input("assign-channels-confirm-button", "n_clicks"),
+    State("channel-assignment-container", "children"),
+    prevent_initial_call=True
+)
+def confirm_channel_assignments(n_clicks, channel_assignment_rows):
+    global assigned_channels_names, mne_raw
+    assigned_channels_names = []
+    if n_clicks is None or n_clicks == 0:
+        return dash.no_update, dash.no_update, dash.no_update
+
+    # Extract channel names from the rows
+    new_channel_names = []
+    for i, row in enumerate(channel_assignment_rows):
+        channel_name = row["props"]["children"][1]["props"]["value"]
+        if channel_name is None:
+            channel_name = f"Channel {i + 1}"
+        new_channel_names.append(channel_name)
+
+    # Append new assignments to the global list
+    assigned_channels_names += new_channel_names
+
+    print(f"Confirmed channel assignments: {assigned_channels_names}")
+    
+    mapping = dict(zip(mne_raw.info['ch_names'], assigned_channels_names))
+    mne_raw.rename_channels(mapping)
+    print(f"Renamed channels in mne_raw: {mne_raw.info['ch_names']}")
+    
+    return assigned_channels_names, {"display": "none"}, {"display": "block"}
 
 if __name__ == "__main__":
     app.run(debug=True)
