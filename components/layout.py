@@ -11,6 +11,39 @@ def create_header():
         id="header-container",
     )
 
+def create_uid_section():
+    return html.Div([
+            html.Button("Show UID", id="show_u_id"),
+            html.H4("User ID:", id="h4_id", style={"display": "none"}),
+            dcc.Textarea(
+                value='',  # Default value
+                id='user-id',
+                style={"display": "none"},
+                readOnly=True  # Optional: prevent editing
+            ),
+            dcc.Input(
+                id='uid-input',
+                type='text',
+                placeholder='Enter your user ID',
+                n_submit=0  # Tracks Enter key presses
+            ),
+            dcc.Dropdown(
+                id='select-file',
+                options=[
+                    {'label': 'Option 1', 'value': 'opt1'},
+                    {'label': 'Option 2', 'value': 'opt2'},
+                    {'label': 'Option 3', 'value': 'opt3'}
+                ],
+                value='opt1',  # default value
+                clearable=False,
+                style={"display": "none"}  # Initially hidden
+                )
+        ], style={
+        'display': 'flex',
+        # 'alignItems': 'center',
+        # 'gap': '10px',  # optional: for consistent spacing
+        }) 
+
 def create_upload_section():
     return dcc.Upload(
         id="upload-file-zone",
@@ -200,6 +233,7 @@ def create_viz_data_layout(mne_raw, bands_names, number_of_channels):
         dcc.Store(id="electrode-view-store", data={"type": "21_electrodes"}),  
         dcc.Store(id="channels-names-store", data=[]),  # <-- Add this line
         create_header(),
+        create_uid_section(),
         create_upload_section(),
         html.Br(),
         html.Br(),

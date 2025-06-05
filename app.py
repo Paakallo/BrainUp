@@ -2,11 +2,11 @@ import os
 from PIL import Image
 import mne
 import numpy as np
-from components.helpers import create_file, initialize
+from components.helpers import create_file, create_user_folder, initialize, start_data_thread
 import dash
 from dash import Input, Output, State, html, dcc, ctx
 import plotly.graph_objects as go
-from components.data_acc import calculate_psd, construct_mne_object, create_top_map, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band, power_band2csv, channels_names_21, channels_names_68
+from components.data_acc import calculate_psd, construct_mne_object, create_top_map, extract_all_power_bands, get_file, bands_names, bands_freq, load_file, pd2mne, plot_raw_channels, plot_power_band, power_band2csv, channels_names_21, channels_names_68
 from components.helpers import filter_data
 from components.layout import create_viz_data_layout
 
@@ -18,6 +18,8 @@ app.title = "BrainUp"
 app._favicon = "logo.png"
 server = app.server
 
+# start data thread
+start_data_thread()
 
 # Define global constants (in my opinion temporary solution)
 mne_raw = construct_mne_object()
@@ -26,12 +28,51 @@ number_of_channels = 0
 channels_names = channels_names_21 # Default channel names for 21 electrodes
 assigned_channels_names = []  
 
+u_id = None
 spectrum = None
 
 app.layout = html.Div([
     create_viz_data_layout(mne_raw, bands_names, number_of_channels),
     # dcc.Store(id="channels-names-store", data=channels_names),  
 ])
+
+
+@app.callback(
+    Output("user-id", "style"),
+    Output("h4_id", "style"),
+    Output("user-id", "value"),
+    Output("select-file", "options"),
+    Output("select-file", "style"),
+    Input("show_u_id", "n_clicks"),
+    Input("uid-input", "n_submit"),
+    State("uid-input", "value"),
+    prevent_initial_call=True
+)
+def update_user_id(n_clicks, n_submit, typed_value):
+    """
+    Update user ID display based on button click or Enter key press
+    """
+    
+    global u_id
+
+    triggered_id = ctx.triggered_id
+
+    # Enter key pressed in uid-input
+    if triggered_id == "uid-input":
+        u_id = typed_value
+        options = [{'label': f"{filename}", 'value': f"{filename}"} for filename in os.listdir(os.path.join("data", u_id))]
+        return dash.no_update, dash.no_update, u_id, options, {"display": "inline-block"}
+
+    # Button clicked to show/hide user ID
+    if triggered_id == "show_u_id":
+        if n_clicks % 2 != 0:
+            # Show elements if we have a u_id
+            if u_id is None:
+                return dash.no_update
+            return {"display": "inline-block"}, {"display": "inline-block"}, u_id, dash.no_update, {"display": "block"}
+        else:
+            return {"display": "none"}, {"display": "none"}, dash.no_update, dash.no_update, {"display": "none"}
+
 
 # Callback for uploading the file
 @app.callback(
@@ -46,11 +87,12 @@ app.layout = html.Div([
     Output("assign-channels-confirm-button", "style", allow_duplicate=True),
     Input("upload-file-zone", "contents"),
     Input("upload-file-zone", "filename"),
-    State("channels-names-store", "data"), 
+    State("channels-names-store", "data"),
+    Input("select-file", "value"),
     prevent_initial_call=True
 )
-def upload_file(file, filename, channels_names):
-    global mne_raw, spectrum, power_bands
+def upload_file(file, filename, channels_names, sel_file):
+    global mne_raw, spectrum, power_bands, u_id
     
     channels_names = channels_names_21
     
@@ -58,26 +100,52 @@ def upload_file(file, filename, channels_names):
         print("No file uploaded")
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
-    raw_data = get_file(file, filename)
-    print(f"File uploaded: {filename}")
-    
-    mne_raw = pd2mne(raw_data)
-    spectrum = calculate_psd(mne_raw)
-    power_bands = extract_all_power_bands(spectrum)
+    triggered_id = ctx.triggered_id
 
-    number_of_channels = len(mne_raw.info["ch_names"])
-    
-    return (
-        channels_names,
-        number_of_channels,
-        "raw",
-        None,
-        None,
-        None,
-        {"display": "None"},
-        {"display": "None"},  
-        {"display": "None"}  
-    )
+    if triggered_id != "select-file":
+        u_path, u_id = create_user_folder(u_id)
+
+        raw_data = get_file(file, filename, u_id)
+        print(f"File uploaded: {filename}")
+        
+        mne_raw = pd2mne(raw_data)
+        spectrum = calculate_psd(mne_raw)
+        power_bands = extract_all_power_bands(spectrum)
+
+        number_of_channels = len(mne_raw.info["ch_names"])
+        
+        return (
+            channels_names,
+            number_of_channels,
+            "raw",
+            None,
+            None,
+            None,
+            {"display": "None"},
+            {"display": "None"},  
+            {"display": "None"}  
+        )
+    else:
+        raw_data = load_file(sel_file, u_id)
+        print("File loaded")
+        
+        mne_raw = pd2mne(raw_data)
+        spectrum = calculate_psd(raw_data)
+        power_bands = extract_all_power_bands(spectrum)
+        
+        number_of_channels = len(mne_raw.info["ch_names"])
+        # Return reset values for all components
+        return (
+            channels_names,
+            number_of_channels,
+            "raw",
+            None,
+            None,
+            None,
+            {"display": "None"},
+            {"display": "None"},  
+            {"display": "None"}  
+        )
 
 # Callback for updating the layout to show channel name asigment container when file is uploaded
 @app.callback(
@@ -319,7 +387,7 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
     elif vis_type == "topo":
         # if triggered_id == "vis_type":
             mat_fig = create_top_map(mne_raw, spectrum)       
-            img_path = create_file(mat_fig, ".png")
+            img_path = create_file(mat_fig, "_topo.png", u_id)
             image = Image.open(img_path)
             return dash.no_update, {"display": "none"}, image, {"display": "block"}
     return fig, {"display": "block"}, dash.no_update, {"display": "none"} 
@@ -427,7 +495,7 @@ def confirm_channel_assignments(n_clicks, channel_assignment_rows):
     mapping = dict(zip(mne_raw.info['ch_names'], assigned_channels_names))
     mne_raw.rename_channels(mapping)
     print(f"Renamed channels in mne_raw: {mne_raw.info['ch_names']}")
-    
+
     return assigned_channels_names, {"display": "none"}, {"display": "block"}
 
 if __name__ == "__main__":

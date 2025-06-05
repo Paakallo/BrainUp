@@ -70,30 +70,50 @@ def construct_mne_object():
     mne_raw = mne.io.RawArray(data, info)
     return mne_raw
 
-def get_file(contents, file_name: str):
+def get_file(contents, file_name:str, u_id: str):
     # Returns pandas DataFrame and column names from decoded contents
     # contents are decoded from uploaded file
-    content_type, content_string = contents.split(',')
-    decoded = base64.b64decode(content_string)
-
+    
     try:
         if file_name.endswith(".csv"):
-            raw_data = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
-            raw_data, channels_info = check_columns(raw_data)
+            raw_data = pd.read_csv(create_file(contents, file_name, u_id))
+            raw_data = check_columns(raw_data)
         elif file_name.endswith(".xls"):  # Test needed
-            raw_data = pd.read_excel(io.BytesIO(decoded))
-            raw_data, channels_info = check_columns(raw_data)
+            raw_data = pd.read_excel(create_file(contents, file_name, u_id))
+            raw_data = check_columns(raw_data)
         elif file_name.endswith(".edf"):
-            raw_data = mne.io.read_raw_edf(create_file(contents, "edf"), preload=True)
-            channels_info = raw_data.ch_names
+            raw_data = mne.io.read_raw_edf(create_file(contents, file_name, u_id), preload=True)
         elif file_name.endswith(".xdf"):
-            raw_data, channels_info = read_raw_xdf(create_file(contents, "xdf"))
+            raw_data, channels_info = read_raw_xdf(create_file(contents, file_name, u_id))
         else:
             raise TypeError("Unsupported file type.")
     except Exception as e:
         print(f"Error processing file: {e}")
         raise ValueError("Error reading file. Please check the file format and content.")
     
+    return raw_data
+
+def load_file(file_name:str, u_id:str):
+    """ Loads a file from the user's folder or the root of the data folder.
+    """
+    file_path = os.path.join("data", u_id, file_name)
+    
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File {file_name} not found in {file_path}")
+
+    if file_name.endswith(".csv"):
+        raw_data = pd.read_csv(file_path)
+        raw_data = check_columns(raw_data)
+    elif file_name.endswith(".xls"): # Test needed
+        raw_data = pd.read_excel(file_path)
+        raw_data = check_columns(raw_data)
+    elif file_name.endswith(".edf"):
+        raw_data = mne.io.read_raw_edf(file_path, preload=True) # temporarily hardcoded
+    elif file_name.endswith(".xdf"):
+        raw_data = read_raw_xdf(file_path)
+    else:
+        raise TypeError
+
     return raw_data
 
 def read_raw_xdf(fname:str):
@@ -120,15 +140,8 @@ def read_raw_xdf(fname:str):
     # create mne object
     info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types)
     raw_data = mne.io.RawArray(data, info)
-    return raw_data, ch_names
+    return raw_data
 
-# def create_file(content, file_type):
-#     # create temporary file stored in data
-#     data = content.encode("utf8").split(b";base64,")[1]
-#     save_path = os.path.join("data", f"{uuid.uuid4()}.{file_type}")
-#     with open(save_path, "wb") as fp:
-#         fp.write(base64.decodebytes(data))
-#     return save_path
 
 def check_columns(import_data:pd.DataFrame):
     # filter data and choose appropriate column names
@@ -149,17 +162,14 @@ def check_columns(import_data:pd.DataFrame):
         df = pd.concat([column_names_row, df], ignore_index=True)
 
     df.columns = channels_info
-    return df, channels_info
+    return df
 
 def pd2mne(raw_data:pd.DataFrame):
     # Convert DataFrame to mne object
-    print(type(raw_data))
     if not isinstance(raw_data, pd.DataFrame):
         return raw_data
-    print(type(raw_data))
     info = mne.create_info(list(raw_data.columns), 256, ch_types="eeg")
     mne_raw = mne.io.RawArray(raw_data.T, info)
-    print(type(mne_raw))
     return mne_raw
 
 def calculate_psd(mne_raw:mne.io.RawArray):
