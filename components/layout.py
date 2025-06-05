@@ -26,10 +26,9 @@ def create_channel_assignment_row(channel_number, channels_names, value=None):
                 id=f"channel-assignment-dropdown-{channel_number}",
                 options=[{"label": ch, "value": ch} for ch in channels_names],
                 placeholder=f"Assign name to Channel {channel_number + 1}",
-                value=value  
+                value=value
             )
-        ],
-        id=f"channel-assignment-row-container-{channel_number}",
+        ]
     )
 
 def create_electrode_navigation():
@@ -144,7 +143,7 @@ def create_main_visualization_container(mne_raw, bands_names):
                     dcc.Dropdown(
                         id="band-dropdown",
                         options=[{"label": name, "value": name} for name in bands_names],
-                        value=bands_names[0],
+                        value='Delta',
                     ),
                 ],
                 id="band-dropdown-container",
