@@ -28,13 +28,11 @@ channels_names_21 = [
     "P3", "P4", "Pz",
     # Occipital
     "O1", "O2",
-    # Reference
-    "A1", "A2"
 ]
 
 channels_names_68 = [
     # Frontal Pole
-    "FpZ", "Fp1", "Fp2", "AF7", "AF3", "AFZ", "AF4", "AF8", "F9", "F10",
+    "Fp1", "Fp2", "AF7", "AF3", "AF4", "AF8", "F9", "F10",
     # Frontal
     "Fz", "F7", "F3", "F1", "F2", "F4", "F8", "F5", "F6",
     # Frontotemporal
@@ -51,8 +49,6 @@ channels_names_68 = [
     "Pz", "P3", "P1", "P2", "P4", "P5", "P6", "P7", "P8", "P9", "P10",
     # Occipital
     "OZ", "O1", "O2", "PO7", "PO3", "POZ", "PO4", "PO8",
-    # Other
-    "NZ", "IZ", "A1", "A2"
 ] # 68 channels
 
 delta = [0.5,4] # Delta:   0.5 – 4   Hz   → Deep sleep, unconscious states

@@ -337,6 +337,7 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
         return dash.no_update, {"display": "none"}, image, {"display": "block"}
     return fig, {"display": "block"}, dash.no_update, {"display": "none"} 
 
+# Callback for updating the band dropdown options based on the selected visualization type
 @app.callback(
     Output("band-dropdown", "value", allow_duplicate=True),
     [Input("vis-type", "value"), Input("upload-file-zone", "contents")],
@@ -347,6 +348,7 @@ def reset_band_dropdown(vis_type, file_contents):
         return 'Delta'
     return dash.no_update
 
+# Callback for downloading the power band data as CSV
 @app.callback(
     Output("download-dataframe-csv", "data"),
     Input("download-button", "n_clicks"),
