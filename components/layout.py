@@ -232,6 +232,7 @@ def create_viz_data_layout(mne_raw, bands_names, number_of_channels):
         dcc.Store(id="number-of-channels", data=number_of_channels),
         dcc.Store(id="electrode-view-store", data={"type": "21_electrodes"}),  
         dcc.Store(id="channels-names-store", data=[]),  # <-- Add this line
+        dcc.Store(id="filename", data=""),
         create_header(),
         create_uid_section(),
         create_upload_section(),

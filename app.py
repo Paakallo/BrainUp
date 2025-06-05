@@ -76,6 +76,7 @@ def update_user_id(n_clicks, n_submit, typed_value):
 
 # Callback for uploading the file
 @app.callback(
+    Output("filename", "data"),
     Output("name-channels", "data"),
     Output("number-of-channels", "data"),
     Output("vis-type", "value"),
@@ -98,7 +99,7 @@ def upload_file(file, filename, channels_names, sel_file):
     
     if filename is None:
         print("No file uploaded")
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update
 
     triggered_id = ctx.triggered_id
 
@@ -115,6 +116,7 @@ def upload_file(file, filename, channels_names, sel_file):
         number_of_channels = len(mne_raw.info["ch_names"])
         
         return (
+            filename,
             channels_names,
             number_of_channels,
             "raw",
@@ -321,10 +323,11 @@ def toggle_band_dropdown_visibility(vis_type):
      Input("channel-dropdown", "value"),
      Input("band-dropdown", "value"),
      Input("filter-frequency", "value"),
-     Input("custom-frequency-slider", "value")],
+     Input("custom-frequency-slider", "value"),
+     State("filename", "data")],
      prevent_initial_call=True
 )
-def update_plot(vis_type, selected_channels, selected_band, filter_frequency, custom_range):
+def update_plot(vis_type, selected_channels, selected_band, filter_frequency, custom_range, filename):
     fig = go.Figure()
 
     triggered_id = ctx.triggered_id
@@ -387,7 +390,7 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
     elif vis_type == "topo":
         # if triggered_id == "vis_type":
             mat_fig = create_top_map(mne_raw, spectrum)       
-            img_path = create_file(mat_fig, "_topo.png", u_id)
+            img_path = create_file(mat_fig, f"{filename}_topo.png", u_id)
             image = Image.open(img_path)
             return dash.no_update, {"display": "none"}, image, {"display": "block"}
     return fig, {"display": "block"}, dash.no_update, {"display": "none"} 

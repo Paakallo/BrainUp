@@ -88,12 +88,12 @@ def create_file(content, file_name:str, u_id:str=None):
         add_file_record(file_name, u_id)
     # save figure as png
     elif file_name.endswith(".png"):
-        with open("temp_files.json", "r") as f:
-            file_tracker = json.load(f)
-            user = file_tracker[u_id]
-            last_key = list(user.keys())[-1]
-            # add user folder to temp_files.json
-            file_name = last_key + file_name #TODO: change it to actual name 
+        # with open("temp_files.json", "r") as f:
+        #     file_tracker = json.load(f)
+        #     user = file_tracker[u_id]
+        #     last_key = list(user.keys())[-1]
+        #     # add user folder to temp_files.json
+        #     file_name = last_key + file_name #TODO: change it to actual name 
         save_path = os.path.join("data", u_id, file_name)
         content.savefig(save_path, bbox_inches="tight")
         add_file_record(file_name, u_id)
