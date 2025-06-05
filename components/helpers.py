@@ -7,7 +7,7 @@ from time import sleep
 import uuid
 
 pause_event = threading.Event() # define pause event
-
+pause_event.set()
 
 def filter_data(raw, low_freq=None, high_freq=None):
     filtered_raw = raw.copy().filter(l_freq=low_freq, h_freq=high_freq)
@@ -25,6 +25,7 @@ def cleanup_expired_files():
     last_time = datetime.datetime.min # intialize last_time
     if_changed = False
     pause_event.wait() # instruct to wait until the flag is set
+    print("Run data thread")
     while True:
         now = datetime.datetime.now()
         if now > last_time:

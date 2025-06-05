@@ -146,11 +146,11 @@ def check_columns(import_data:pd.DataFrame):
         df = pd.concat([column_names_row, df], ignore_index=True)
 
     # hardcoded
-    channel_names = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz']
-    df.columns = channel_names
+    # channel_names = ['Fp1', 'Fp2', 'F3', 'F4', 'F7', 'F8', 'T3', 'T4', 'C3', 'C4', 'T5', 'T6', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz', 'Pz']
+    # df.columns = channel_names
 
     # uncomment to defy hardcoding
-    # df.columns = channels_info
+    df.columns = channels_info
     return df
 
 def pd2mne(raw_data:pd.DataFrame):
@@ -164,10 +164,6 @@ def pd2mne(raw_data:pd.DataFrame):
 def calculate_psd(raw_data:pd.DataFrame):
     # Create MNE Raw object and calculate PSD
     mne_raw = pd2mne(raw_data)
-    # set_montage if it doesn't have it 
-    if mne_raw.get_montage() is None:
-        new_mon = set_mont(mne_raw.ch_names)
-        mne_raw.set_montage(new_mon)
     psd = mne_raw.compute_psd()
     return psd, mne_raw.info['ch_names']
 
@@ -223,8 +219,16 @@ def set_mont(data_ch:list):
     # mont1020_new.plot()
     return mont1020_new
 
-def create_top_map(psd_data:mne.time_frequency.spectrum.Spectrum):
-    # topo_fig = psd_data.plot_topomap(ch_type='eeg', show=False, size=100, res=100)
+def create_top_map(mne_raw, psd_data:mne.time_frequency.spectrum.Spectrum):
+    print("setting montage")
+    if mne_raw.get_montage() is None:
+        new_mon = set_mont(mne_raw.ch_names)
+        mne_raw.set_montage(new_mon)
+    
+    # temporary fix for montage
+    print("Calculating PSD")
+    psd_data, _ = calculate_psd(mne_raw)
+    print("Plotting topomap")
     topo_fig = psd_data.plot_topomap(ch_type='eeg', show=False)
     #TODO: adjust to monitor resolution
     screen_width_px = 1620 
@@ -235,6 +239,7 @@ def create_top_map(psd_data:mne.time_frequency.spectrum.Spectrum):
     height_in = screen_height_px / dpi
 
     topo_fig.set_size_inches(width_in, height_in)
+    print("Topomap created")
     return topo_fig
 ###
 ### Specific Vizaulization Functions

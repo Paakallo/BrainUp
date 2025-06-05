@@ -26,6 +26,9 @@ from components.helpers import filter_data, cleanup_expired_files, start_data_th
 from components.layout import create_viz_data_layout
 import threading
 
+# manages saved data
+start_data_thread()
+
 app = dash.Dash(__name__)
 app.title = "BrainUp"  
 app._favicon = "logo.png"
@@ -42,14 +45,11 @@ assigned_channels_names = []
 
 spectrum = None
 
-
 app.layout = html.Div([
     create_viz_data_layout(mne_raw, bands_names, number_of_channels),
     dcc.Store(id="channels-names-store", data=channels_names),  
 ])
 
-# manages saved data
-start_data_thread()
 
 # Callback for uploading file and nuking the whole page
 @app.callback(
@@ -331,7 +331,9 @@ def update_plot(vis_type, selected_channels, selected_band, filter_frequency, cu
 
     # Display topographic map
     elif vis_type == "topo":
-        mat_fig = create_top_map(spectrum)       
+        print("vis_type is topo")
+        mat_fig = create_top_map(mne_raw, spectrum)
+        print("Creating topographic map")
         img_path = create_file(mat_fig, ".png")
         image = Image.open(img_path)
         return dash.no_update, {"display": "none"}, image, {"display": "block"}
