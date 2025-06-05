@@ -9,7 +9,7 @@ if not os.path.exists("data") or not os.path.exists("temp_files.json"):
 
 from PIL import Image
 import dash
-from dash import Input, Output, State, html, dcc
+from dash import Input, Output, State, html, dcc, ctx
 import plotly.graph_objects as go
 from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band, power_band2csv, create_top_map
 from components.helpers import filter_data, cleanup_expired_files, start_data_thread
@@ -83,17 +83,34 @@ def toggle_band_dropdown_visibility(name_channels):
     Output("h4_id", "style"),
     Output("user-id", "value"),
     Input("show_u_id", "n_clicks"),
+    Input("uid-input", "n_submit"),
+    State("uid-input", "value"),
     prevent_initial_call=True
 )
-def show_uid(n_clicks):
+def update_user_id(n_clicks, n_submit, typed_value):
+    """
+    Update user ID display based on button click or Enter key press
+    """
+    
     global u_id
-    # show/hide user ID based on button clicks
-    if n_clicks %2 != 0:
-        if u_id is None:
-            return dash.no_update, dash.no_update, dash.no_update,    
-        return {"flex":"1", "display": "inline-block"}, {"display": "inline-block"}, u_id
-    else:
-        return {"display": "none"}, {"display": "none"}, dash.no_update
+
+    triggered_id = ctx.triggered_id
+
+    # Enter key pressed in uid-input
+    if triggered_id == "uid-input":
+        u_id = typed_value
+        return dash.no_update, dash.no_update, u_id
+
+    # Button clicked to show/hide user ID
+    if triggered_id == "show_u_id":
+        if n_clicks % 2 != 0:
+            # Show elements if we have a u_id
+            if u_id is None:
+                return dash.no_update, dash.no_update, dash.no_update
+            return {"flex": "1", "display": "inline-block"}, {"display": "inline-block"}, u_id
+        else:
+            return {"display": "none"}, {"display": "none"}, dash.no_update
+
 
 # Callback for updating channel dropdown options
 @app.callback(

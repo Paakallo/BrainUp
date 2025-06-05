@@ -33,12 +33,18 @@ def create_viz_data_layout(mne_raw, bands_names):
                 id='user-id',
                 style={'flex': '1', "display": "none"},
                 readOnly=True  # Optional: prevent editing
+            ),
+            dcc.Input(
+                id='uid-input',
+                type='text',
+                placeholder='Type something and press Enter',
+                n_submit=0  # Tracks Enter key presses
             )
         ], style={
         'display': 'flex',
         'alignItems': 'center',
         'gap': '10px',  # optional: for consistent spacing
-    }),
+        }),
 
         # Main Visualization a data manipulation container
         # This container will be hidden until a file is uploaded
