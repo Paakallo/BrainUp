@@ -56,6 +56,29 @@ def get_file(contents, file_name:str, u_id:str):
         print("Error reading file. Please check the file format and content.")
     return raw_data
 
+def load_file(file_name:str, u_id:str):
+    """ Loads a file from the user's folder or the root of the data folder.
+    """
+    file_path = os.path.join("data", u_id, file_name)
+    
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File {file_name} not found in {file_path}")
+
+    if file_name.endswith(".csv"):
+        raw_data = pd.read_csv(file_path)
+        raw_data = check_columns(raw_data)
+    elif file_name.endswith(".xls"): # Test needed
+        raw_data = pd.read_excel(file_path)
+        raw_data = check_columns(raw_data)
+    elif file_name.endswith(".edf"):
+        raw_data = mne.io.read_raw_edf(file_path, preload=True) # temporarily hardcoded
+    elif file_name.endswith(".xdf"):
+        raw_data = read_raw_xdf(file_path)
+    else:
+        raise TypeError
+
+    return raw_data
+
 def read_raw_xdf(fname:str):
     streams, header = pyxdf.load_xdf(fname)
     # find the stream with EEG data

@@ -11,7 +11,7 @@ from PIL import Image
 import dash
 from dash import Input, Output, State, html, dcc, ctx
 import plotly.graph_objects as go
-from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, pd2mne, plot_raw_channels, plot_power_band, power_band2csv, create_top_map
+from components.data_acc import calculate_psd, construct_mne_object, extract_all_power_bands, get_file, bands_names, bands_freq, load_file, pd2mne, plot_raw_channels, plot_power_band, power_band2csv, create_top_map
 from components.helpers import filter_data, cleanup_expired_files, start_data_thread
 from components.layout import create_viz_data_layout
 import threading
@@ -32,56 +32,12 @@ app.layout = create_viz_data_layout(mne_raw, bands_names)
 # threading.Thread(target=cleanup_expired_files, daemon=True).start()
 start_data_thread()
 
-# Callback for uploading file and nuking the whole page
-@app.callback(
-        Output("name-channels", "data"),
-        Output("vis-type", "value"),
-        Output("band-dropdown", "value"),
-        Output("filter-frequency", "value"),
-        Output("custom-frequency-slider", "value"),
-        Input("upload-file-zone", "contents"),
-        Input("upload-file-zone", "filename"),
-        prevent_initial_call=True
-)
-def upload_file(file, filename):
-    global mne_raw, spectrum, power_bands, u_id
-    # quit if nothing is uploaded
-    if filename is None:
-        return dash.no_update
-
-    u_path, u_id = create_user_folder(u_id)
-
-    raw_data = get_file(file, filename, u_id)
-    print("File uploaded")
-    
-    mne_raw = pd2mne(raw_data)
-    spectrum, channels_info = calculate_psd(raw_data)
-    power_bands = extract_all_power_bands(spectrum)
-    # Return reset values for all components
-    return (
-        channels_info,
-        "raw",  # Default visualization type
-        None,  # No band selected
-        None,  # No filter selected
-        None,  # No custom frequency
-    )
-
-# Callback for updating the layout to show/hide the band dropdown
-@app.callback(
-    Output("main-container", "style"),
-    Input("name-channels", "data"), 
-    prevent_initial_call=True
-)
-def toggle_band_dropdown_visibility(name_channels):
-    if name_channels == None:
-        return {"display": "none"}
-    else:
-        return {"display": "block"}
-
 @app.callback(
     Output("user-id", "style"),
     Output("h4_id", "style"),
     Output("user-id", "value"),
+    Output("select-file", "options"),
+    Output("select-file", "style"),
     Input("show_u_id", "n_clicks"),
     Input("uid-input", "n_submit"),
     State("uid-input", "value"),
@@ -99,18 +55,84 @@ def update_user_id(n_clicks, n_submit, typed_value):
     # Enter key pressed in uid-input
     if triggered_id == "uid-input":
         u_id = typed_value
-        return dash.no_update, dash.no_update, u_id
+        options = [{'label': f"{filename}", 'value': f"{filename}"} for filename in os.listdir(os.path.join("data", u_id))]
+        return dash.no_update, dash.no_update, u_id, options, {"display": "inline-block"}
 
     # Button clicked to show/hide user ID
     if triggered_id == "show_u_id":
         if n_clicks % 2 != 0:
             # Show elements if we have a u_id
             if u_id is None:
-                return dash.no_update, dash.no_update, dash.no_update
-            return {"flex": "1", "display": "inline-block"}, {"display": "inline-block"}, u_id
+                return dash.no_update
+            return {"display": "inline-block"}, {"display": "inline-block"}, u_id, dash.no_update, {"display": "block"}
         else:
-            return {"display": "none"}, {"display": "none"}, dash.no_update
+            return {"display": "none"}, {"display": "none"}, dash.no_update, dash.no_update, {"display": "none"}
 
+# Callback for uploading file and nuking the whole page
+@app.callback(
+        Output("name-channels", "data"),
+        Output("vis-type", "value"),
+        Output("band-dropdown", "value"),
+        Output("filter-frequency", "value"),
+        Output("custom-frequency-slider", "value"),
+        Input("upload-file-zone", "contents"),
+        Input("upload-file-zone", "filename"),
+        Input("select-file", "value"),
+        prevent_initial_call=True,
+        allow_duplicate=True
+)
+def upload_file(file, filename, sel_file):
+    global mne_raw, spectrum, power_bands, u_id
+    # quit if nothing is uploaded
+    if filename is None:
+        return dash.no_update
+
+    triggered_id = ctx.triggered_id
+
+    if triggered_id != "select-file":
+        u_path, u_id = create_user_folder(u_id)
+
+        raw_data = get_file(file, filename, u_id)
+        print("File uploaded")
+        
+        mne_raw = pd2mne(raw_data)
+        spectrum, channels_info = calculate_psd(raw_data)
+        power_bands = extract_all_power_bands(spectrum)
+        # Return reset values for all components
+        return (
+            channels_info,
+            "raw",  # Default visualization type
+            None,  # No band selected
+            None,  # No filter selected
+            None,  # No custom frequency
+        )
+    else:
+        raw_data = load_file(sel_file, u_id)
+        print("File loaded")
+        
+        mne_raw = pd2mne(raw_data)
+        spectrum, channels_info = calculate_psd(raw_data)
+        power_bands = extract_all_power_bands(spectrum)
+        # Return reset values for all components
+        return (
+            channels_info,
+            "raw",  # Default visualization type
+            None,  # No band selected
+            None,  # No filter selected
+            None,  # No custom frequency
+        )
+
+# Callback for updating the layout to show/hide the band dropdown
+@app.callback(
+    Output("main-container", "style"),
+    Input("name-channels", "data"), 
+    prevent_initial_call=True
+)
+def toggle_band_dropdown_visibility(name_channels):
+    if name_channels == None:
+        return {"display": "none"}
+    else:
+        return {"display": "block"}
 
 # Callback for updating channel dropdown options
 @app.callback(

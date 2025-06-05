@@ -31,15 +31,26 @@ def create_viz_data_layout(mne_raw, bands_names):
             dcc.Textarea(
                 value='',  # Default value
                 id='user-id',
-                style={'flex': '1', "display": "none"},
+                style={"display": "none"},
                 readOnly=True  # Optional: prevent editing
             ),
             dcc.Input(
                 id='uid-input',
                 type='text',
-                placeholder='Type something and press Enter',
+                placeholder='Enter your user ID',
                 n_submit=0  # Tracks Enter key presses
-            )
+            ),
+            dcc.Dropdown(
+                id='select-file',
+                options=[
+                    {'label': 'Option 1', 'value': 'opt1'},
+                    {'label': 'Option 2', 'value': 'opt2'},
+                    {'label': 'Option 3', 'value': 'opt3'}
+                ],
+                value='opt1',  # default value
+                clearable=False,
+                style={"display": "none"}  # Initially hidden
+                )
         ], style={
         'display': 'flex',
         'alignItems': 'center',
